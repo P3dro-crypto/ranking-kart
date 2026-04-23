@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sistem Kart: Pro Edition 🏎️</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #ff4b4b; --bg: #0e1117; --card: #1d2129; --text: #ffffff; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; }
+        header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+        h1 { font-family: 'Orbitron', sans-serif; color: var(--primary); margin: 0; }
+        
+        /* Filtros */
+        .filters { display: flex; gap: 15px; margin-bottom: 20px; background: var(--card); padding: 15px; border-radius: 10px; }
+        select { background: #333; color: white; border: 1px solid var(--primary); padding: 8px; border-radius: 5px; cursor: pointer; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border-bottom: 4px solid var(--primary); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #333; color: var(--primary); font-size: 12px; }
+        td { padding: 12px; border-bottom: 1px solid #333; }
+        
+        .podium { font-weight: bold; }
+        .pos-1 { color: #ffd700; } /* Ouro */
+        .pos-2 { color: #c0c0c0; } /* Prata */
+        .pos-3 { color: #cd7f32; } /* Bronze */
+        
+        #loader { text-align: center; padding: 50px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SISTEMA KART PRO</h1>
+            <div id="lastUpdate" style="font-size: 0.8em; color: #888;"></div>
+        </header>
+
+        <div class="filters">
+            <div>
+                <label>Campeonato:</label>
+                <select id="filterCampeonato" onchange="processarDados()"></select>
+            </div>
+            <div>
+                <label>Etapa:</label>
+                <select id="filterEtapa" onchange="processarDados()"></select>
+            </div>
+            <div>
+                <label>Piloto (Evolução):</label>
+                <select id="filterPiloto" onchange="processarDados()"></select>
+            </div>
+        </div>
+
+        <div id="loader">Aguardando telemetria...</div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>🏆 Tabela de Classificação</h3>
+                <table id="tabelaRanking">
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Piloto</th>
+                            <th>Pontos</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>📈 Evolução Individual</h3>
+                <canvas id="graficoEvolucao"></canvas>
+            </div>
+            
+            <div class="card" style="grid-column: 1 / -1;">
+                <h3>📊 Comparativo de Pontos</h3>
+                <canvas id="graficoBarras" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const URL_API = "https://script.google.com/macros/s/AKfycbzKGRGcIfzF9o55bcxoo-2z1Jutkw_zUFjltj_JetshFzaHNIi05JKjm2iQruLDjkZt/exec";
+        let dadosGlobais = [];
+        let chartEvolucao, chartBarras;
+
+        async function init() {
+            try {
+                const res = await fetch(URL_API);
+                dadosGlobais = await res.json();
+                
+                // Preencher filtros iniciais
+                const camps = [...new Set(dadosGlobais.map(d => d.campeonato))];
+                const campSelect = document.getElementById('filterCampeonato');
+                camps.forEach(c => campSelect.innerHTML += `<option value="${c}">${c}</option>`);
+
+                const pilotos = [...new Set(dadosGlobais.map(d => d.piloto))];
+                const pilotoSelect = document.getElementById('filterPiloto');
+                pilotos.forEach(p => pilotoSelect.innerHTML += `<option value="${p}">${p}</option>`);
+
+                processarDados();
+                document.getElementById('loader').style.display = 'none';
+            } catch (e) {
+                document.getElementById('loader').innerText = "Erro ao carregar dados.";
+            }
+        }
+
+        function processarDados() {
+            const campSel = document.getElementById('filterCampeonato').value;
+            const etapaSel = document.getElementById('filterEtapa').value;
+            const pilotoSel = document.getElementById('filterPiloto').value;
+
+            // Filtrar etapas disponíveis para este campeonato
+            const etapasDisponiveis = [...new Set(dadosGlobais.filter(d => d.campeonato === campSel).map(d => d.etapa))].sort((a,b)=>a-b);
+            const etapaDropdown = document.getElementById('filterEtapa');
+            const valorAtualEtapa = etapaDropdown.value;
+            etapaDropdown.innerHTML = `<option value="GERAL">Geral (Acumulado)</option>`;
+            etapasDisponiveis.forEach(e => {
+                etapaDropdown.innerHTML += `<option value="${e}" ${valorAtualEtapa == e ? 'selected' : ''}>Etapa ${e}</option>`;
+            });
+
+            // Lógica do Ranking
+            let dadosFiltrados = dadosGlobais.filter(d => d.campeonato === campSel);
+            if(etapaDropdown.value !== "GERAL") {
+                dadosFiltrados = dadosFiltrados.filter(d => d.etapa == etapaDropdown.value);
+            }
+
+            const ranking = {};
+            dadosFiltrados.forEach(d => {
+                ranking[d.piloto] = (ranking[d.piloto] || 0) + parseInt(d.pontos);
+            });
+
+            const sorted = Object.entries(ranking).sort((a,b) => b[1] - a[1]);
+            
+            // Atualizar Tabela
+            const tbody = document.querySelector("#tabelaRanking tbody");
+            tbody.innerHTML = "";
+            sorted.forEach(([piloto, pts], i) => {
+                const pos = i + 1;
+                let classe = pos <= 3 ? `podium pos-${pos}` : "";
+                let icone = pos === 1 ? "🥇 " : pos === 2 ? "🥈 " : pos === 3 ? "🥉 " : "";
+                tbody.innerHTML += `<tr class="${classe}"><td>${pos}º</td><td>${icone}${piloto}</td><td>${pts}</td></tr>`;
+            });
+
+            atualizarGraficos(sorted, campSel, pilotoSel);
+        }
+
+        function atualizarGraficos(dadosRanking, camp, piloto) {
+            // 1. Gráfico de Barras (Comparativo)
+            if(chartBarras) chartBarras.destroy();
+            chartBarras = new Chart(document.getElementById('graficoBarras'), {
+                type: 'bar',
+                data: {
+                    labels: dadosRanking.map(d => d[0]),
+                    datasets: [{ label: 'Pontos', data: dadosRanking.map(d => d[1]), backgroundColor: '#ff4b4b' }]
+                },
+                options: { scales: { y: { beginAtZero: true, grid: { color: '#333' } } } }
+            });
+
+            // 2. Gráfico de Evolução (Histórico do Piloto)
+            const historico = dadosGlobais
+                .filter(d => d.campeonato === camp && d.piloto === piloto)
+                .sort((a,b) => a.etapa - b.etapa);
+
+            if(chartEvolucao) chartEvolucao.destroy();
+            chartEvolucao = new Chart(document.getElementById('graficoEvolucao'), {
+                type: 'line',
+                data: {
+                    labels: historico.map(d => "Etapa " + d.etapa),
+                    datasets: [{
+                        label: `Posição de ${piloto}`,
+                        data: historico.map(d => d.posicao),
+                        borderColor: '#ff4b4b',
+                        tension: 0.3,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: { 
+                        y: { reverse: true, ticks: { stepSize: 1 }, grid: { color: '#333' } } // Inverte o eixo Y (1º lugar no topo)
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
