@@ -99,34 +99,55 @@
     }
 
     // FUNÇÃO QUE GERA O RANKING NA TELA
-    function renderRanking() {
+   function renderRanking() {
+        const container = document.getElementById('rankingContent');
+        const filtroCamp = document.getElementById('filtro_rank_camp').value; 
+        
         if (!DB.resultados || DB.resultados.length === 0) {
-            document.getElementById('rankingContent').innerHTML = "<p>Nenhum resultado lançado ainda.</p>";
+            container.innerHTML = "<p style='color: #888;'>Nenhum resultado lançado ainda.</p>";
             return;
         }
 
-        // Agrupar pontos por piloto
         const soma = {};
-        DB.resultados.forEach(r => {
-            const nome = r.piloto;
-            const pts = parseInt(r.pontos) || 0;
-            soma[nome] = (soma[nome] || 0) + pts;
+
+        // 1. Filtrar resultados por campeonato (se um for selecionado)
+        const resultadosFiltrados = filtroCamp 
+            ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === filtroCamp)
+            : DB.resultados;
+
+        // 2. Agrupar pontos por piloto
+        resultadosFiltrados.forEach(r => {
+            const nome = r.piloto || r.Piloto;
+            const pts = parseInt(r.pontos || r.Pontos) || 0;
+            if (nome) {
+                soma[nome] = (soma[nome] || 0) + pts;
+            }
         });
 
-        // Transformar em array e ordenar do maior para o menor
+        // 3. Transformar em array, buscar apelido e ordenar do maior para o menor
         const rankingSorted = Object.entries(soma)
-            .map(([nome, pontos]) => ({ nome, pontos }))
+            .map(([nome, pontos]) => {
+                const dadosPiloto = DB.pilotos.find(p => p.nome === nome);
+                const apelido = dadosPiloto ? dadosPiloto.apelido : ""; 
+                return { nome, apelido, pontos };
+            })
             .sort((a, b) => b.pontos - a.pontos);
 
+        if (rankingSorted.length === 0) {
+            container.innerHTML = "<p style='color: #888;'>Sem dados para este campeonato.</p>";
+            return;
+        }
+
+        // 4. Desenhar a Tabela na tela
         let html = `<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>`;
         rankingSorted.forEach((p, index) => {
-            html += `<tr><td>${index + 1}º</td><td>${p.nome}</td><td>${p.pontos}</td></tr>`;
+            const exibicao = p.apelido ? `${p.nome} <br><small style='color:#888'>@${p.apelido}</small>` : p.nome;
+            html += `<tr><td>${index + 1}º</td><td>${exibicao}</td><td>${p.pontos}</td></tr>`;
         });
         html += `</table>`;
         
-        document.getElementById('rankingContent').innerHTML = html;
+        container.innerHTML = html;
     }
-
    function popularFiltros() {
         // Criamos as opções baseadas nos campeonatos da planilha
         const options = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
