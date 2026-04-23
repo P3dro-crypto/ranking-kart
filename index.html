@@ -4,21 +4,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kart Admin System 🏎️</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --red: #ff4b4b; --dark: #0e1117; --card: #1d2129; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; padding-bottom: 70px; }
         .section { display: none; padding: 20px; }
         .active { display: block; }
-        
-        /* Menu Inferior Mobile */
-        .navbar { position: fixed; bottom: 0; width: 100%; background: var(--card); display: flex; justify-content: space-around; padding: 10px 0; border-top: 2px solid var(--red); }
+        .navbar { position: fixed; bottom: 0; width: 100%; background: var(--card); display: flex; justify-content: space-around; padding: 10px 0; border-top: 2px solid var(--red); z-index: 1000; }
         .nav-item { color: white; text-decoration: none; font-size: 12px; text-align: center; cursor: pointer; }
-        
-        /* Formulários */
         input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #333; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 15px; background: var(--red); border: none; color: white; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; }
-        .form-card { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        .form-card { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; }
+        
+        /* Estilo da Tabela de Rank */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card); border-radius: 10px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #252a34; color: var(--red); }
+        tr:nth-child(even) { background: #252a34; }
     </style>
 </head>
 <body>
@@ -27,7 +28,9 @@
 
 <div id="dash" class="section active">
     <h2>🏆 Ranking Geral</h2>
-    <div id="rankingList"></div>
+    <div id="rankingContent">
+        <p style="color: #888;">Carregando posições...</p>
+    </div>
 </div>
 
 <div id="lançar" class="section">
@@ -61,7 +64,7 @@
         <input type="password" id="pass_piloto" placeholder="Senha ADM">
         <input type="text" id="piloto_nome" placeholder="Nome Completo">
         <input type="text" id="piloto_apelido" placeholder="Apelido">
-        <p style="font-size: 12px; color: #888;">Segure Ctrl para selecionar vários campeonatos:</p>
+        <p style="font-size: 12px; color: #888;">Selecione os campeonatos:</p>
         <select id="piloto_vinc" multiple size="5"></select>
         <button onclick="salvar('pilotos')">CADASTRAR PILOTO</button>
     </div>
@@ -84,9 +87,39 @@
             DB = await res.json();
             document.getElementById('loading').style.display = 'none';
             popularFiltros();
+            renderRanking();
         } catch (erro) {
-            console.error("Erro ao buscar dados:", erro);
+            console.error("Erro:", erro);
         }
+    }
+
+    // FUNÇÃO QUE GERA O RANKING NA TELA
+    function renderRanking() {
+        if (!DB.resultados || DB.resultados.length === 0) {
+            document.getElementById('rankingContent').innerHTML = "<p>Nenhum resultado lançado ainda.</p>";
+            return;
+        }
+
+        // Agrupar pontos por piloto
+        const soma = {};
+        DB.resultados.forEach(r => {
+            const nome = r.piloto;
+            const pts = parseInt(r.pontos) || 0;
+            soma[nome] = (soma[nome] || 0) + pts;
+        });
+
+        // Transformar em array e ordenar do maior para o menor
+        const rankingSorted = Object.entries(soma)
+            .map(([nome, pontos]) => ({ nome, pontos }))
+            .sort((a, b) => b.pontos - a.pontos);
+
+        let html = `<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>`;
+        rankingSorted.forEach((p, index) => {
+            html += `<tr><td>${index + 1}º</td><td>${p.nome}</td><td>${p.pontos}</td></tr>`;
+        });
+        html += `</table>`;
+        
+        document.getElementById('rankingContent').innerHTML = html;
     }
 
     function popularFiltros() {
@@ -98,7 +131,7 @@
     function filtrarPilotosPorCamp() {
         const campSel = document.getElementById('sel_camp').value;
         const pilotosFiltrados = DB.pilotos.filter(p => p.campeonatos && p.campeonatos.includes(campSel));
-        document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome} (${p.apelido})</option>`).join('');
+        document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
     }
 
     function show(id) {
@@ -107,59 +140,40 @@
     }
 
     async function salvar(tipo) {
-        const btnOriginal = event.target;
-        const textoOriginal = btnOriginal.innerText;
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ENVIANDO...";
+        btn.disabled = true;
+
         let payload = { tipo: tipo };
-        
-        try {
-            btnOriginal.innerText = "⏳ ENVIANDO...";
-            btnOriginal.disabled = true;
-
-            if(tipo === 'resultados') {
-                payload.senha = document.getElementById('pass_res').value;
-                payload.campeonato = document.getElementById('sel_camp').value;
-                payload.piloto = document.getElementById('sel_piloto').value;
-                payload.posicao = document.getElementById('res_pos').value;
-                payload.etapa = document.getElementById('res_etapa').value;
-                payload.data = document.getElementById('res_data').value;
-            } else if(tipo === 'campeonatos') {
-                payload.senha = document.getElementById('pass_camp').value;
-                payload.nome = document.getElementById('camp_nome').value;
-                payload.descricao = document.getElementById('camp_desc').value;
-                payload.inicio = document.getElementById('camp_ini').value;
-                payload.fim = document.getElementById('camp_fim').value;
-            } else if(tipo === 'pilotos') {
-                payload.senha = document.getElementById('pass_piloto').value;
-                payload.nome = document.getElementById('piloto_nome').value;
-                payload.apelido = document.getElementById('piloto_apelido').value;
-                const selecionados = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value);
-                payload.vinculos = selecionados.join(', ');
-            }
-
-            const response = await fetch(URL_API, {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-
-            const textoResposta = await response.text();
-
-            if (textoResposta.includes("Sucesso")) {
-                btnOriginal.style.background = "#28a745";
-                btnOriginal.innerText = "✅ CADASTRADO COM SUCESSO!";
-                setTimeout(() => { location.reload(); }, 2000);
-            } else {
-                throw new Error(textoResposta);
-            }
-
-        } catch (erro) {
-            btnOriginal.style.background = "#dc3545";
-            btnOriginal.innerText = "❌ ERRO NA SENHA OU DADOS";
-            setTimeout(() => {
-                btnOriginal.style.background = ""; 
-                btnOriginal.innerText = textoOriginal;
-                btnOriginal.disabled = false;
-            }, 3000);
+        if(tipo === 'resultados') {
+            payload.senha = document.getElementById('pass_res').value;
+            payload.campeonato = document.getElementById('sel_camp').value;
+            payload.piloto = document.getElementById('sel_piloto').value;
+            payload.posicao = document.getElementById('res_pos').value;
+            payload.etapa = document.getElementById('res_etapa').value;
+            payload.data = document.getElementById('res_data').value;
+        } else if(tipo === 'campeonatos') {
+            payload.senha = document.getElementById('pass_camp').value;
+            payload.nome = document.getElementById('camp_nome').value;
+            payload.descricao = document.getElementById('camp_desc').value;
+            payload.inicio = document.getElementById('camp_ini').value;
+            payload.fim = document.getElementById('camp_fim').value;
+        } else if(tipo === 'pilotos') {
+            payload.senha = document.getElementById('pass_piloto').value;
+            payload.nome = document.getElementById('piloto_nome').value;
+            payload.vinculos = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value).join(', ');
         }
+
+        try {
+            const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
+            const txt = await res.text();
+            if (txt.includes("Sucesso")) {
+                btn.style.background = "#28a745";
+                btn.innerText = "✅ SUCESSO!";
+                setTimeout(() => location.reload(), 1500);
+            } else { alert("Erro: Senha incorreta"); btn.disabled = false; btn.innerText = originalText; }
+        } catch (e) { alert("Erro na conexão"); btn.disabled = false; btn.innerText = originalText; }
     }
 
     fetchData();
