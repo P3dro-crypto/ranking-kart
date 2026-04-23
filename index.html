@@ -3,180 +3,135 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kart Manager Pro 🏎️</title>
+    <title>Kart Admin System 🏎️</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #ff4b4b; --bg: #0e1117; --card: #1d2129; --text: #ffffff; }
-        body { font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
-        .container { max-width: 1000px; margin: auto; }
+        :root { --red: #ff4b4b; --dark: #0e1117; --card: #1d2129; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; padding-bottom: 70px; }
+        .section { display: none; padding: 20px; }
+        .active { display: block; }
         
-        /* Header e Botão Admin */
-        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-        h1 { font-family: 'Orbitron', sans-serif; color: var(--primary); font-size: 1.2rem; margin: 0; }
-        .btn-admin { background: none; border: 1px solid var(--primary); color: var(--primary); padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-
-        /* Responsividade (Grid) */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
-
-        .card { background: var(--card); padding: 15px; border-radius: 12px; border-bottom: 3px solid var(--primary); }
+        /* Menu Inferior Mobile */
+        .navbar { position: fixed; bottom: 0; width: 100%; background: var(--card); display: flex; justify-content: space-around; padding: 10px 0; border-top: 2px solid var(--red); }
+        .nav-item { color: white; text-decoration: none; font-size: 12px; text-align: center; cursor: pointer; }
         
-        /* Formulário de Lançamento (Escondido) */
-        #adminPanel { 
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #1d2129; padding: 20px; border-radius: 15px; z-index: 100; border: 2px solid var(--primary);
-            width: 90%; max-width: 400px; box-shadow: 0 0 30px rgba(0,0,0,0.8);
-        }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 4px; }
-        input, select { width: 100%; padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
-        .btn-save { width: 100%; padding: 12px; background: var(--primary); border: none; color: white; font-weight: bold; border-radius: 5px; margin-top: 10px; }
-
-        /* Tabela Mobile */
-        .table-wrapper { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
-        .pos-1 { color: #ffd700; font-weight: bold; }
+        /* Formulários */
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #333; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: var(--red); border: none; color: white; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; }
+        .form-card { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <header>
-        <h1>KART PRO v2</h1>
-        <button class="btn-admin" onclick="abrirAdmin()">⚙️ ADM</button>
-    </header>
+<div id="loading" style="padding: 20px; text-align: center;">Sincronizando boxes...</div>
 
-    <div class="card" style="margin-bottom: 15px; display: flex; gap: 10px;">
-        <select id="viewCamp" onchange="loadData()"><option>Carregando...</option></select>
-        <select id="viewEtapa" onchange="loadData()"><option value="GERAL">Geral</option></select>
-    </div>
+<div id="dash" class="section active">
+    <h2>🏆 Ranking Geral</h2>
+    <div id="rankingList"></div>
+</div>
 
-    <div class="grid">
-        <div class="card table-wrapper">
-            <h3>🏆 Ranking</h3>
-            <table id="rankingTable">
-                <thead><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="card">
-            <h3>📊 Performance</h3>
-            <canvas id="mainChart"></canvas>
-        </div>
+<div id="lançar" class="section">
+    <div class="form-card">
+        <h2>🏎️ Lançar Corrida</h2>
+        <input type="password" id="pass_res" placeholder="Senha ADM">
+        <select id="sel_camp" onchange="filtrarPilotosPorCamp()"><option value="">Selecione o Campeonato</option></select>
+        <select id="sel_piloto"><option value="">Selecione o Piloto</option></select>
+        <input type="number" id="res_pos" placeholder="Posição Final">
+        <input type="number" id="res_etapa" placeholder="Número da Etapa">
+        <input type="date" id="res_data">
+        <button onclick="salvar('resultados')">GRAVAR RESULTADO</button>
     </div>
 </div>
 
-<div id="adminPanel">
-    <h2 style="color: var(--primary); margin-top: 0;">Lançar Resultado</h2>
-    <div class="form-group">
-        <label>Senha:</label>
-        <input type="password" id="senha" placeholder="Digite a senha">
+<div id="cad_camp" class="section">
+    <div class="form-card">
+        <h2>🏁 Novo Campeonato</h2>
+        <input type="password" id="pass_camp" placeholder="Senha ADM">
+        <input type="text" id="camp_nome" placeholder="Nome do Campeonato">
+        <textarea id="camp_desc" placeholder="Descrição"></textarea>
+        <label>Início:</label><input type="date" id="camp_ini">
+        <label>Fim (Opcional):</label><input type="date" id="camp_fim">
+        <button onclick="salvar('campeonatos')">CADASTRAR</button>
     </div>
-    <hr style="border: 0.5px solid #444; margin-bottom: 15px;">
-    <div class="form-group">
-        <label>Piloto:</label>
-        <input type="text" id="p_nome" placeholder="Ex: Pedro">
-    </div>
-    <div class="form-group">
-        <label>Posição Final:</label>
-        <input type="number" id="p_pos" placeholder="Ex: 1">
-    </div>
-    <div class="form-group">
-        <label>Etapa (Número):</label>
-        <input type="number" id="p_etapa" placeholder="Ex: 1">
-    </div>
-    <div class="form-group">
-        <label>Campeonato:</label>
-        <input type="text" id="p_camp" placeholder="Ex: Temporada 2024">
-    </div>
-    <button class="btn-save" onclick="salvarResultado()">SALVAR NA PLANILHA</button>
-    <button class="btn-admin" style="width: 100%; margin-top: 10px;" onclick="document.getElementById('adminPanel').style.display='none'">CANCELAR</button>
 </div>
+
+<div id="cad_piloto" class="section">
+    <div class="form-card">
+        <h2>👤 Novo Piloto</h2>
+        <input type="password" id="pass_piloto" placeholder="Senha ADM">
+        <input type="text" id="piloto_nome" placeholder="Nome Completo">
+        <input type="text" id="piloto_apelido" placeholder="Apelido">
+        <p style="font-size: 12px; color: #888;">Segure Ctrl para selecionar vários campeonatos:</p>
+        <select id="piloto_vinc" multiple size="5"></select>
+        <button onclick="salvar('pilotos')">CADASTRAR PILOTO</button>
+    </div>
+</div>
+
+<nav class="navbar">
+    <div class="nav-item" onclick="show('dash')">📊<br>Rank</div>
+    <div class="nav-item" onclick="show('lançar')">⏱️<br>Lançar</div>
+    <div class="nav-item" onclick="show('cad_camp')">🏁<br>Camps</div>
+    <div class="nav-item" onclick="show('cad_piloto')">👤<br>Pilotos</div>
+</nav>
 
 <script>
-    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbz6z6b7CEgEqfsJ2AeZZboVj5J7Ra7pPleV0d9c7VLuh3W7r9HcCuDJ7AhCFV0kQK4d/exec"; // COLOQUE A URL DO PASSO 1 AQUI
-    let rawData = [];
-    let myChart;
+    const URL_API = "https://script.google.com/macros/s/AKfycbxELWpBN8nfHsiHzyJLRNRQuGhAC_FctT6iEWjLU-HpI0bkPXDd53BnKL-JV5h7SKxl/exec";
+    let DB = { campeonatos: [], pilotos: [], resultados: [] };
 
-    async function loadData() {
-        const res = await fetch(URL_SCRIPT);
-        rawData = await res.json();
+    async function fetchData() {
+        const res = await fetch(URL_API);
+        DB = await res.json();
+        document.getElementById('loading').style.display = 'none';
+        popularFiltros();
+    }
+
+    function popularFiltros() {
+        // Preencher selects de campeonatos
+        const options = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+        document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + options;
+        document.getElementById('piloto_vinc').innerHTML = options;
+    }
+
+    function filtrarPilotosPorCamp() {
+        const campSel = document.getElementById('sel_camp').value;
+        const pilotosFiltrados = DB.pilotos.filter(p => p.campeonatos.includes(campSel));
+        document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome} (${p.apelido})</option>`).join('');
+    }
+
+    function show(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    async function salvar(tipo) {
+        let payload = { tipo: tipo };
         
-        // Popular filtro de campeonato se estiver vazio
-        const campSelect = document.getElementById('viewCamp');
-        if(campSelect.options[0].text === "Carregando...") {
-            const camps = [...new Set(rawData.map(d => d.campeonato))];
-            campSelect.innerHTML = camps.map(c => `<option value="${c}">${c}</option>`).join('');
+        if(tipo === 'resultados') {
+            payload.senha = document.getElementById('pass_res').value;
+            payload.campeonato = document.getElementById('sel_camp').value;
+            payload.piloto = document.getElementById('sel_piloto').value;
+            payload.posicao = document.getElementById('res_pos').value;
+            payload.etapa = document.getElementById('res_etapa').value;
+            payload.data = document.getElementById('res_data').value;
+        } else if(tipo === 'campeonatos') {
+            payload.senha = document.getElementById('pass_camp').value;
+            payload.nome = document.getElementById('camp_nome').value;
+            payload.descricao = document.getElementById('camp_desc').value;
+            payload.inicio = document.getElementById('camp_ini').value;
+            payload.fim = document.getElementById('camp_fim').value;
+        } else if(tipo === 'pilotos') {
+            payload.senha = document.getElementById('pass_piloto').value;
+            payload.nome = document.getElementById('piloto_nome').value;
+            payload.apelido = document.getElementById('piloto_apelido').value;
+            const selecionados = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value);
+            payload.vinculos = selecionados.join(', ');
         }
 
-        renderRanking();
+        const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
+        if(res.ok) { alert("Sucesso!"); location.reload(); } else { alert("Erro na senha ou conexão."); }
     }
 
-    function renderRanking() {
-        const camp = document.getElementById('viewCamp').value;
-        const filtered = rawData.filter(d => d.campeonato === camp);
-        
-        const ranking = {};
-        filtered.forEach(d => {
-            ranking[d.piloto] = (ranking[d.piloto] || 0) + parseInt(d.pontos);
-        });
-
-        const sorted = Object.entries(ranking).sort((a,b) => b[1] - a[1]);
-        const tbody = document.querySelector("#rankingTable tbody");
-        tbody.innerHTML = sorted.map((d, i) => `
-            <tr>
-                <td class="${i===0?'pos-1':''}">${i+1}º</td>
-                <td>${d[0]}</td>
-                <td>${d[1]}</td>
-            </tr>
-        `).join('');
-
-        updateChart(sorted);
-    }
-
-    function updateChart(data) {
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        if(myChart) myChart.destroy();
-        myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: data.map(d => d[0]),
-                datasets: [{ label: 'Pontos', data: data.map(d => d[1]), backgroundColor: '#ff4b4b' }]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
-    }
-
-    function abrirAdmin() {
-        document.getElementById('adminPanel').style.display = 'block';
-    }
-
-    async function salvarResultado() {
-        const data = {
-            senha: document.getElementById('senha').value,
-            piloto: document.getElementById('p_nome').value,
-            posicao: parseInt(document.getElementById('p_pos').value),
-            etapa: document.getElementById('p_etapa').value,
-            campeonato: document.getElementById('p_camp').value,
-            data: new Date().toLocaleDateString()
-        };
-
-        const res = await fetch(URL_SCRIPT, {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-            alert("✅ Lançado com sucesso!");
-            location.reload();
-        } else {
-            alert("❌ Erro: Senha incorreta ou problema na planilha.");
-        }
-    }
-
-    loadData();
+    fetchData();
 </script>
 </body>
 </html>
