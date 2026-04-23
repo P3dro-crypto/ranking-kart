@@ -27,7 +27,12 @@
 <div id="loading" style="padding: 20px; text-align: center;">Sincronizando boxes...</div>
 
 <div id="dash" class="section active">
-    <h2>🏆 Ranking Geral</h2>
+    <h2>🏆 Ranking</h2>
+    <div class="form-card" style="margin-bottom: 15px; padding: 10px;">
+        <select id="filtro_rank_camp" onchange="renderRanking()">
+            <option value="">📊 Ranking Geral (Todos)</option>
+        </select>
+    </div>
     <div id="rankingContent">
         <p style="color: #888;">Carregando posições...</p>
     </div>
@@ -122,15 +127,24 @@
         document.getElementById('rankingContent').innerHTML = html;
     }
 
-    function popularFiltros() {
+   function popularFiltros() {
+        // Criamos as opções baseadas nos campeonatos da planilha
         const options = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+        
+        // 1. Preenche o NOVO seletor de filtro do Ranking (aquele que você criou no dash)
+        if(document.getElementById('filtro_rank_camp')) {
+            document.getElementById('filtro_rank_camp').innerHTML = '<option value="">📊 Ranking Geral (Todos)</option>' + options;
+        }
+        
+        // 2. Preenche os selects de cadastro de corrida e pilotos
         document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + options;
         document.getElementById('piloto_vinc').innerHTML = options;
     }
 
     function filtrarPilotosPorCamp() {
         const campSel = document.getElementById('sel_camp').value;
-        const pilotosFiltrados = DB.pilotos.filter(p => p.campeonatos && p.campeonatos.includes(campSel));
+        // Filtra pilotos que têm o campeonato selecionado na lista de vínculos deles
+        const pilotosFiltrados = DB.pilotos.filter(p => p.vinculos && p.vinculos.includes(campSel));
         document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
     }
 
