@@ -79,14 +79,17 @@
     let DB = { campeonatos: [], pilotos: [], resultados: [] };
 
     async function fetchData() {
-        const res = await fetch(URL_API);
-        DB = await res.json();
-        document.getElementById('loading').style.display = 'none';
-        popularFiltros();
+        try {
+            const res = await fetch(URL_API);
+            DB = await res.json();
+            document.getElementById('loading').style.display = 'none';
+            popularFiltros();
+        } catch (erro) {
+            console.error("Erro ao buscar dados:", erro);
+        }
     }
 
     function popularFiltros() {
-        // Preencher selects de campeonatos
         const options = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
         document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + options;
         document.getElementById('piloto_vinc').innerHTML = options;
@@ -94,7 +97,7 @@
 
     function filtrarPilotosPorCamp() {
         const campSel = document.getElementById('sel_camp').value;
-        const pilotosFiltrados = DB.pilotos.filter(p => p.campeonatos.includes(campSel));
+        const pilotosFiltrados = DB.pilotos.filter(p => p.campeonatos && p.campeonatos.includes(campSel));
         document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome} (${p.apelido})</option>`).join('');
     }
 
@@ -103,68 +106,63 @@
         document.getElementById(id).classList.add('active');
     }
 
-   async function salvar(tipo) {
-    // 1. Pegar o botão que foi clicado para dar feedback
-    const btnOriginal = event.target;
-    const textoOriginal = btnOriginal.innerText;
-    
-    // 2. Coletar dados (ajustado para os IDs que você já usa)
-    let payload = { tipo: tipo };
-    
-    try {
-        btnOriginal.innerText = "⏳ ENVIANDO...";
-        btnOriginal.disabled = true;
-
-        if(tipo === 'resultados') {
-            payload.senha = document.getElementById('pass_res').value;
-            payload.campeonato = document.getElementById('sel_camp').value;
-            payload.piloto = document.getElementById('sel_piloto').value;
-            payload.posicao = document.getElementById('res_pos').value;
-            payload.etapa = document.getElementById('res_etapa').value;
-            payload.data = document.getElementById('res_data').value;
-        } else if(tipo === 'campeonatos') {
-            payload.senha = document.getElementById('pass_camp').value;
-            payload.nome = document.getElementById('camp_nome').value;
-            payload.descricao = document.getElementById('camp_desc').value;
-            payload.inicio = document.getElementById('camp_ini').value;
-            payload.fim = document.getElementById('camp_fim').value;
-        } else if(tipo === 'pilotos') {
-            payload.senha = document.getElementById('pass_piloto').value;
-            payload.nome = document.getElementById('piloto_nome').value;
-            payload.apelido = document.getElementById('piloto_apelido').value;
-            const selecionados = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value);
-            payload.vinculos = selecionados.join(', ');
-        }
-
-        // 3. Enviar para o Google
-        const response = await fetch(URL_API, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        const textoResposta = await response.text();
-
-        if (textoResposta === "Sucesso") {
-            btnOriginal.style.background = "#28a745"; // Verde
-            btnOriginal.innerText = "✅ CADASTRADO COM SUCESSO!";
-            
-            // Limpa os campos após 2 segundos e recarrega
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        } else {
-            throw new Error(textoResposta);
-        }
-
-    } catch (erro) {
-        btnOriginal.style.background = "#dc3545"; // Vermelho
-        btnOriginal.innerText = "❌ ERRO: VERIFIQUE A SENHA";
-        console.error(erro);
+    async function salvar(tipo) {
+        const btnOriginal = event.target;
+        const textoOriginal = btnOriginal.innerText;
+        let payload = { tipo: tipo };
         
-        setTimeout(() => {
-            btnOriginal.style.background = ""; 
-            btnOriginal.innerText = textoOriginal;
-            btnOriginal.disabled = false;
-        }, 3000);
+        try {
+            btnOriginal.innerText = "⏳ ENVIANDO...";
+            btnOriginal.disabled = true;
+
+            if(tipo === 'resultados') {
+                payload.senha = document.getElementById('pass_res').value;
+                payload.campeonato = document.getElementById('sel_camp').value;
+                payload.piloto = document.getElementById('sel_piloto').value;
+                payload.posicao = document.getElementById('res_pos').value;
+                payload.etapa = document.getElementById('res_etapa').value;
+                payload.data = document.getElementById('res_data').value;
+            } else if(tipo === 'campeonatos') {
+                payload.senha = document.getElementById('pass_camp').value;
+                payload.nome = document.getElementById('camp_nome').value;
+                payload.descricao = document.getElementById('camp_desc').value;
+                payload.inicio = document.getElementById('camp_ini').value;
+                payload.fim = document.getElementById('camp_fim').value;
+            } else if(tipo === 'pilotos') {
+                payload.senha = document.getElementById('pass_piloto').value;
+                payload.nome = document.getElementById('piloto_nome').value;
+                payload.apelido = document.getElementById('piloto_apelido').value;
+                const selecionados = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value);
+                payload.vinculos = selecionados.join(', ');
+            }
+
+            const response = await fetch(URL_API, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const textoResposta = await response.text();
+
+            if (textoResposta.includes("Sucesso")) {
+                btnOriginal.style.background = "#28a745";
+                btnOriginal.innerText = "✅ CADASTRADO COM SUCESSO!";
+                setTimeout(() => { location.reload(); }, 2000);
+            } else {
+                throw new Error(textoResposta);
+            }
+
+        } catch (erro) {
+            btnOriginal.style.background = "#dc3545";
+            btnOriginal.innerText = "❌ ERRO NA SENHA OU DADOS";
+            setTimeout(() => {
+                btnOriginal.style.background = ""; 
+                btnOriginal.innerText = textoOriginal;
+                btnOriginal.disabled = false;
+            }, 3000);
+        }
     }
-}
+
+    fetchData();
+</script>
+</body>
+</html>
