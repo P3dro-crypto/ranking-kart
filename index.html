@@ -75,7 +75,7 @@
 </nav>
 
 <script>
-    const URL_API = "https://script.google.com/macros/s/AKfycbxELWpBN8nfHsiHzyJLRNRQuGhAC_FctT6iEWjLU-HpI0bkPXDd53BnKL-JV5h7SKxl/exec";
+    const URL_API = "https://script.google.com/macros/s/AKfycbwg-f4DOp4_1oCVACnOkob1XME2xTsjT0OoURsZ7iLNcTOuvUygarfMAQ75vgCweEI2/exec";
     let DB = { campeonatos: [], pilotos: [], resultados: [] };
 
     async function fetchData() {
@@ -103,9 +103,18 @@
         document.getElementById(id).classList.add('active');
     }
 
-    async function salvar(tipo) {
-        let payload = { tipo: tipo };
-        
+   async function salvar(tipo) {
+    // 1. Pegar o botão que foi clicado para dar feedback
+    const btnOriginal = event.target;
+    const textoOriginal = btnOriginal.innerText;
+    
+    // 2. Coletar dados (ajustado para os IDs que você já usa)
+    let payload = { tipo: tipo };
+    
+    try {
+        btnOriginal.innerText = "⏳ ENVIANDO...";
+        btnOriginal.disabled = true;
+
         if(tipo === 'resultados') {
             payload.senha = document.getElementById('pass_res').value;
             payload.campeonato = document.getElementById('sel_camp').value;
@@ -127,11 +136,35 @@
             payload.vinculos = selecionados.join(', ');
         }
 
-        const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
-        if(res.ok) { alert("Sucesso!"); location.reload(); } else { alert("Erro na senha ou conexão."); }
-    }
+        // 3. Enviar para o Google
+        const response = await fetch(URL_API, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
 
-    fetchData();
-</script>
-</body>
-</html>
+        const textoResposta = await response.text();
+
+        if (textoResposta === "Sucesso") {
+            btnOriginal.style.background = "#28a745"; // Verde
+            btnOriginal.innerText = "✅ CADASTRADO COM SUCESSO!";
+            
+            // Limpa os campos após 2 segundos e recarrega
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            throw new Error(textoResposta);
+        }
+
+    } catch (erro) {
+        btnOriginal.style.background = "#dc3545"; // Vermelho
+        btnOriginal.innerText = "❌ ERRO: VERIFIQUE A SENHA";
+        console.error(erro);
+        
+        setTimeout(() => {
+            btnOriginal.style.background = ""; 
+            btnOriginal.innerText = textoOriginal;
+            btnOriginal.disabled = false;
+        }, 3000);
+    }
+}
