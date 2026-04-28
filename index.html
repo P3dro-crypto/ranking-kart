@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html>        
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
@@ -76,6 +76,18 @@
 </div>
 
 <nav class="navbar">
+    <div class="nav-item" onclick="show('importar')">📂<br>Importar</div>
+    <div id="importar" class="section">
+    <div class="form-card">
+        <h2>📂 Importar Arquivos do Kartódromo</h2>
+        <p style="font-size: 12px; color: #888;">Selecione os arquivos .html (Resultado, Volta a Volta, etc)</p>
+        
+        <input type="file" id="fileInput" multiple accept=".html" style="margin-bottom: 10px;">
+        <button onclick="processarArquivos()" style="background: #2196F3;">ANALISAR ARQUIVOS</button>
+        
+        <div id="previewImportacao" style="margin-top: 20px;"></div>
+    </div>
+</div>
     <div class="nav-item" onclick="show('dash')">📊<br>Rank</div>
     <div class="nav-item" onclick="show('lançar')">⏱️<br>Lançar</div>
     <div class="nav-item" onclick="show('cad_camp')">🏁<br>Camps</div>
@@ -212,6 +224,76 @@
     }
 
     fetchData();
+
+     // Cole isso dentro do seu <script>
+    const MEUS_PILOTOS = [
+        {id: "41938", nome: "LEONARDO LEMES"},
+        {id: "231138", nome: "RODRIGO CRUZ"},
+        {id: "232869", nome: "JOÃO VICTOR"},
+        {id: "4196", nome: "JÚLIO CEZAR"},
+        {id: "51107", nome: "DANILO OLIVEIRA"},
+        {id: "232984", nome: "FRANCISCO CAMILLO"},
+        {id: "232194", nome: "LUCAS OLIVEIRA"}
+    ];
+
+    async function processarArquivos() {
+        const files = document.getElementById('fileInput').files;
+        const preview = document.getElementById('previewImportacao');
+        if (files.length === 0) return alert("Selecione os arquivos primeiro!");
+        
+        preview.innerHTML = "⌛ Analisando...";
+        let encontrados = [];
+
+        for (let file of files) {
+            const text = await file.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const rows = doc.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const textoLinha = row.innerText;
+                MEUS_PILOTOS.forEach(p => {
+                    // Se o ID ou Nome do seu piloto estiver na linha do HTML
+                    if (textoLinha.includes(p.id)) {
+                        const colunas = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+                        encontrados.push({
+                            piloto: p.nome,
+                            posicao: colunas[0], // Geralmente a 1ª coluna é a posição
+                            detalhes: colunas.join(' | ')
+                        });
+                    }
+                });
+            });
+        }
+        renderPreview(encontrados);
+    }
+
+    function renderPreview(lista) {
+        const div = document.getElementById('previewImportacao');
+        if (lista.length === 0) {
+            div.innerHTML = "<p>Nenhum piloto do campeonato achado.</p>";
+            return;
+        }
+
+        let html = "<h3>Confirmar Dados:</h3>";
+        lista.forEach((item, i) => {
+            html += `
+                <div class="form-card" style="background:#2b303b; font-size:11px;">
+                    <strong>${item.piloto}</strong> - Pos: ${item.posicao}<br>
+                    <small>${item.detalhes}</small>
+                    <button onclick="preencherCadastro('${item.piloto}', '${item.posicao}')" style="padding:5px; margin-top:5px;">Usar este</button>
+                </div>`;
+        });
+        div.innerHTML = html;
+    }
+
+    function preencherCadastro(nome, pos) {
+        // Essa função joga os dados para a tela de 'Lançar' para facilitar sua vida
+        show('lançar');
+        document.getElementById('sel_piloto').value = nome;
+        document.getElementById('res_pos').value = pos;
+        alert("Dados jogados para a aba Lançar! Agora é só conferir e Gravar.");
+    }
 </script>
 </body>
 </html>
