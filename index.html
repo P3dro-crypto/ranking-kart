@@ -14,12 +14,11 @@
         input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #333; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 15px; background: var(--red); border: none; color: white; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; }
         .form-card { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; }
-        
-        /* Estilo da Tabela de Rank */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card); border-radius: 10px; overflow: hidden; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { background: #252a34; color: var(--red); }
         tr:nth-child(even) { background: #252a34; }
+        .import-box { border: 1px dashed #555; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -35,6 +34,27 @@
     </div>
     <div id="rankingContent">
         <p style="color: #888;">Carregando posições...</p>
+    </div>
+</div>
+
+<div id="importar" class="section">
+    <div class="form-card">
+        <h2>📂 Importar e Persistir</h2>
+        <p style="font-size: 12px; color: #888;">Suba um arquivo por vez para salvar no histórico do GitHub e processar.</p>
+        
+        <div class="import-box">
+            <label>Tipo de Arquivo:</label>
+            <select id="tipo_arquivo_import">
+                <option value="resultado_final">🏁 Resultado Final</option>
+                <option value="volta_a_volta">⏱️ Volta a Volta</option>
+                <option value="classificacao">🚥 Classificação (Grid)</option>
+            </select>
+            <input type="file" id="fileInputSingle" accept=".html">
+            <button onclick="fazerBackupEProcessar()" style="background: #2196F3;">SALVAR NO HISTÓRICO E ANALISAR</button>
+        </div>
+        
+        <div id="statusImport" style="text-align: center; font-size: 13px; color: #ffeb3b;"></div>
+        <div id="previewImportacao" style="margin-top: 20px;"></div>
     </div>
 </div>
 
@@ -76,28 +96,33 @@
 </div>
 
 <nav class="navbar">
-    <div class="nav-item" onclick="show('importar')">📂<br>Importar</div>
-    <div id="importar" class="section">
-    <div class="form-card">
-        <h2>📂 Importar Arquivos do Kartódromo</h2>
-        <p style="font-size: 12px; color: #888;">Selecione os arquivos .html (Resultado, Volta a Volta, etc)</p>
-        
-        <input type="file" id="fileInput" multiple accept=".html" style="margin-bottom: 10px;">
-        <button onclick="processarArquivos()" style="background: #2196F3;">ANALISAR ARQUIVOS</button>
-        
-        <div id="previewImportacao" style="margin-top: 20px;"></div>
-    </div>
-</div>
     <div class="nav-item" onclick="show('dash')">📊<br>Rank</div>
+    <div class="nav-item" onclick="show('importar')">📂<br>Importar</div>
     <div class="nav-item" onclick="show('lançar')">⏱️<br>Lançar</div>
     <div class="nav-item" onclick="show('cad_camp')">🏁<br>Camps</div>
     <div class="nav-item" onclick="show('cad_piloto')">👤<br>Pilotos</div>
 </nav>
 
 <script>
+    // --- CONFIGURAÇÃO ---
     const URL_API = "https://script.google.com/macros/s/AKfycbwWIL3hrPq6w6pCjCS5-ZYwv3hAY8Rr1ZjYxC-tEh7f9enmpTsZ7fzu9ilWpioQGQEc/exec";
+    const GITHUB_USER = "P3dro-crypto";
+    const GITHUB_REPO = "ranking-kart";
+    const TOKEN_GITHUB = "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"// <--- COLE O SEU TOKEN ghp_ AQUI!
+
     let DB = { campeonatos: [], pilotos: [], resultados: [] };
 
+    const MEUS_PILOTOS = [
+        {id: "41938", nome: "LEONARDO LEMES"},
+        {id: "231138", nome: "RODRIGO CRUZ"},
+        {id: "232869", nome: "JOÃO VICTOR"},
+        {id: "4196", nome: "JÚLIO CEZAR"},
+        {id: "51107", nome: "DANILO OLIVEIRA"},
+        {id: "232984", nome: "FRANCISCO CAMILLO"},
+        {id: "232194", nome: "LUCAS OLIVEIRA"}
+    ];
+
+    // CARREGAR DADOS INICIAIS
     async function fetchData() {
         try {
             const res = await fetch(URL_API);
@@ -110,80 +135,132 @@
         }
     }
 
-    // FUNÇÃO QUE GERA O RANKING NA TELA
-   function renderRanking() {
-        const container = document.getElementById('rankingContent');
-        const filtroCamp = document.getElementById('filtro_rank_camp').value; 
-        
-        if (!DB.resultados || DB.resultados.length === 0) {
-            container.innerHTML = "<p style='color: #888;'>Nenhum resultado lançado ainda.</p>";
+    // NAVEGAÇÃO
+    function show(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    // BACKUP NO GITHUB E PROCESSAMENTO
+    async function fazerBackupEProcessar() {
+        const fileInput = document.getElementById('fileInputSingle');
+        const file = fileInput.files[0];
+        const tipo = document.getElementById('tipo_arquivo_import').value;
+        const status = document.getElementById('statusImport');
+
+        if (!file) return alert("Selecione um arquivo!");
+        if (TOKEN_GITHUB === "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") return alert("Erro: Token do GitHub não configurado!");
+
+        status.innerHTML = "⏳ Salvando no histórico do GitHub...";
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const conteudoRaw = e.target.result;
+            const conteudoBase64 = btoa(unescape(encodeURIComponent(conteudoRaw)));
+            const dataPath = new Date().toISOString().split('T')[0];
+            const caminho = `historico-corridas/${dataPath}-${tipo}-${file.name}`;
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${caminho}`, {
+                    method: "PUT",
+                    headers: { "Authorization": `token ${TOKEN_GITHUB}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: `Backup: ${file.name}`, content: conteudoBase64 })
+                });
+
+                if (res.ok) {
+                    status.innerHTML = "✅ Salvo no GitHub! Analisando pilotos...";
+                    analisarHTML(conteudoRaw);
+                } else {
+                    status.innerHTML = "❌ Erro ao salvar no GitHub. Verifique o Token.";
+                }
+            } catch (err) {
+                status.innerHTML = "❌ Erro de conexão.";
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // ANALISAR O HTML FILTRANDO PELO CAMPEONATO
+    function analisarHTML(htmlText) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+        const rows = doc.querySelectorAll('tr');
+        const preview = document.getElementById('previewImportacao');
+        let encontrados = [];
+
+        rows.forEach(row => {
+            const texto = row.innerText;
+            MEUS_PILOTOS.forEach(p => {
+                if (texto.includes(p.id)) {
+                    const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+                    encontrados.push({ nome: p.nome, pos: cols[0], original: cols.join(' | ') });
+                }
+            });
+        });
+
+        if (encontrados.length === 0) {
+            preview.innerHTML = "<p>Nenhum piloto do seu campeonato encontrado neste arquivo.</p>";
             return;
         }
 
+        let htmlPreview = "<h3>Pilotos Identificados:</h3>";
+        encontrados.forEach(item => {
+            htmlPreview += `
+                <div class="form-card" style="background:#252a34; font-size:12px; margin-bottom:10px;">
+                    <strong>${item.nome}</strong> - Posição: ${item.pos}<br>
+                    <button onclick="preencherCadastro('${item.nome}', '${item.pos}')" style="padding:5px; width:auto; font-size:10px;">Lançar este resultado</button>
+                </div>`;
+        });
+        preview.innerHTML = htmlPreview;
+    }
+
+    function preencherCadastro(nome, pos) {
+        show('lançar');
+        document.getElementById('sel_piloto').value = nome;
+        document.getElementById('res_pos').value = parseInt(pos) || "";
+        alert("Dados enviados para a aba Lançar!");
+    }
+
+    // RESTANTE DAS FUNÇÕES ORIGINAIS (RANKING E SALVAMENTO)
+    function renderRanking() {
+        const container = document.getElementById('rankingContent');
+        const filtroCamp = document.getElementById('filtro_rank_camp').value; 
+        if (!DB.resultados || DB.resultados.length === 0) {
+            container.innerHTML = "<p style='color: #888;'>Nenhum resultado lançado.</p>";
+            return;
+        }
         const soma = {};
-
-        // 1. Filtrar resultados por campeonato (se um for selecionado)
-        const resultadosFiltrados = filtroCamp 
-            ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === filtroCamp)
-            : DB.resultados;
-
-        // 2. Agrupar pontos por piloto
+        const resultadosFiltrados = filtroCamp ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === filtroCamp) : DB.resultados;
         resultadosFiltrados.forEach(r => {
             const nome = r.piloto || r.Piloto;
             const pts = parseInt(r.pontos || r.Pontos) || 0;
-            if (nome) {
-                soma[nome] = (soma[nome] || 0) + pts;
-            }
+            if (nome) soma[nome] = (soma[nome] || 0) + pts;
         });
-
-        // 3. Transformar em array, buscar apelido e ordenar do maior para o menor
         const rankingSorted = Object.entries(soma)
             .map(([nome, pontos]) => {
-                const dadosPiloto = DB.pilotos.find(p => p.nome === nome);
-                const apelido = dadosPiloto ? dadosPiloto.apelido : ""; 
-                return { nome, apelido, pontos };
+                const pDados = DB.pilotos.find(p => p.nome === nome);
+                return { nome, apelido: pDados ? pDados.apelido : "", pontos };
             })
             .sort((a, b) => b.pontos - a.pontos);
 
-        if (rankingSorted.length === 0) {
-            container.innerHTML = "<p style='color: #888;'>Sem dados para este campeonato.</p>";
-            return;
-        }
-
-        // 4. Desenhar a Tabela na tela
         let html = `<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>`;
-        rankingSorted.forEach((p, index) => {
-            const exibicao = p.apelido ? `${p.nome} <br><small style='color:#888'>@${p.apelido}</small>` : p.nome;
-            html += `<tr><td>${index + 1}º</td><td>${exibicao}</td><td>${p.pontos}</td></tr>`;
+        rankingSorted.forEach((p, i) => {
+            html += `<tr><td>${i + 1}º</td><td>${p.nome}</td><td>${p.pontos}</td></tr>`;
         });
-        html += `</table>`;
-        
-        container.innerHTML = html;
+        container.innerHTML = html + `</table>`;
     }
-   function popularFiltros() {
-        // Criamos as opções baseadas nos campeonatos da planilha
-        const options = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
-        
-        // 1. Preenche o NOVO seletor de filtro do Ranking (aquele que você criou no dash)
-        if(document.getElementById('filtro_rank_camp')) {
-            document.getElementById('filtro_rank_camp').innerHTML = '<option value="">📊 Ranking Geral (Todos)</option>' + options;
-        }
-        
-        // 2. Preenche os selects de cadastro de corrida e pilotos
-        document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + options;
-        document.getElementById('piloto_vinc').innerHTML = options;
+
+    function popularFiltros() {
+        const opts = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+        document.getElementById('filtro_rank_camp').innerHTML = '<option value="">📊 Ranking Geral</option>' + opts;
+        document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + opts;
+        document.getElementById('piloto_vinc').innerHTML = opts;
     }
 
     function filtrarPilotosPorCamp() {
         const campSel = document.getElementById('sel_camp').value;
-        // Filtra pilotos que têm o campeonato selecionado na lista de vínculos deles
-        const pilotosFiltrados = DB.pilotos.filter(p => p.vinculos && p.vinculos.includes(campSel));
-        document.getElementById('sel_piloto').innerHTML = pilotosFiltrados.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
-    }
-
-    function show(id) {
-        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
+        const filtrados = DB.pilotos.filter(p => p.vinculos && p.vinculos.includes(campSel));
+        document.getElementById('sel_piloto').innerHTML = filtrados.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
     }
 
     async function salvar(tipo) {
@@ -205,7 +282,6 @@
             payload.nome = document.getElementById('camp_nome').value;
             payload.descricao = document.getElementById('camp_desc').value;
             payload.inicio = document.getElementById('camp_ini').value;
-            payload.fim = document.getElementById('camp_fim').value;
         } else if(tipo === 'pilotos') {
             payload.senha = document.getElementById('pass_piloto').value;
             payload.nome = document.getElementById('piloto_nome').value;
@@ -216,7 +292,6 @@
             const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
             const txt = await res.text();
             if (txt.includes("Sucesso")) {
-                btn.style.background = "#28a745";
                 btn.innerText = "✅ SUCESSO!";
                 setTimeout(() => location.reload(), 1500);
             } else { alert("Erro: Senha incorreta"); btn.disabled = false; btn.innerText = originalText; }
@@ -224,76 +299,6 @@
     }
 
     fetchData();
-
-     // Cole isso dentro do seu <script>
-    const MEUS_PILOTOS = [
-        {id: "41938", nome: "LEONARDO LEMES"},
-        {id: "231138", nome: "RODRIGO CRUZ"},
-        {id: "232869", nome: "JOÃO VICTOR"},
-        {id: "4196", nome: "JÚLIO CEZAR"},
-        {id: "51107", nome: "DANILO OLIVEIRA"},
-        {id: "232984", nome: "FRANCISCO CAMILLO"},
-        {id: "232194", nome: "LUCAS OLIVEIRA"}
-    ];
-
-    async function processarArquivos() {
-        const files = document.getElementById('fileInput').files;
-        const preview = document.getElementById('previewImportacao');
-        if (files.length === 0) return alert("Selecione os arquivos primeiro!");
-        
-        preview.innerHTML = "⌛ Analisando...";
-        let encontrados = [];
-
-        for (let file of files) {
-            const text = await file.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-            const rows = doc.querySelectorAll('tr');
-
-            rows.forEach(row => {
-                const textoLinha = row.innerText;
-                MEUS_PILOTOS.forEach(p => {
-                    // Se o ID ou Nome do seu piloto estiver na linha do HTML
-                    if (textoLinha.includes(p.id)) {
-                        const colunas = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
-                        encontrados.push({
-                            piloto: p.nome,
-                            posicao: colunas[0], // Geralmente a 1ª coluna é a posição
-                            detalhes: colunas.join(' | ')
-                        });
-                    }
-                });
-            });
-        }
-        renderPreview(encontrados);
-    }
-
-    function renderPreview(lista) {
-        const div = document.getElementById('previewImportacao');
-        if (lista.length === 0) {
-            div.innerHTML = "<p>Nenhum piloto do campeonato achado.</p>";
-            return;
-        }
-
-        let html = "<h3>Confirmar Dados:</h3>";
-        lista.forEach((item, i) => {
-            html += `
-                <div class="form-card" style="background:#2b303b; font-size:11px;">
-                    <strong>${item.piloto}</strong> - Pos: ${item.posicao}<br>
-                    <small>${item.detalhes}</small>
-                    <button onclick="preencherCadastro('${item.piloto}', '${item.posicao}')" style="padding:5px; margin-top:5px;">Usar este</button>
-                </div>`;
-        });
-        div.innerHTML = html;
-    }
-
-    function preencherCadastro(nome, pos) {
-        // Essa função joga os dados para a tela de 'Lançar' para facilitar sua vida
-        show('lançar');
-        document.getElementById('sel_piloto').value = nome;
-        document.getElementById('res_pos').value = pos;
-        alert("Dados jogados para a aba Lançar! Agora é só conferir e Gravar.");
-    }
 </script>
 </body>
 </html>
