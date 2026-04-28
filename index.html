@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Kart Admin System 🏎️</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
     <style>
         :root { --red: #ff4b4b; --dark: #0e1117; --card: #1d2129; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; margin: 0; padding-bottom: 70px; }
@@ -40,11 +44,11 @@
 <div id="importar" class="section">
     <div class="form-card">
         <h2>📂 Importar e Persistir</h2>
-        <p style="font-size: 12px; color: #888;">Selecione os 3 arquivos de uma vez (Segure Ctrl ou Shift) para salvar no GitHub.</p>
+        <p style="font-size: 12px; color: #888;">Selecione os 3 arquivos de uma vez. O backup será salvo no Firebase.</p>
         
         <div class="import-box">
             <input type="file" id="fileInputMultiple" accept=".html" multiple>
-            <button onclick="fazerBackupEProcessar()" style="background: #2196F3;">SALVAR TUDO NO HISTÓRICO E ANALISAR</button>
+            <button onclick="fazerBackupEProcessar()" style="background: #2196F3;">SALVAR NO FIREBASE E ANALISAR</button>
         </div>
         
         <div id="statusImport" style="text-align: center; font-size: 13px; color: #ffeb3b;"></div>
@@ -72,7 +76,6 @@
         <input type="text" id="camp_nome" placeholder="Nome do Campeonato">
         <textarea id="camp_desc" placeholder="Descrição"></textarea>
         <label>Início:</label><input type="date" id="camp_ini">
-        <label>Fim (Opcional):</label><input type="date" id="camp_fim">
         <button onclick="salvar('campeonatos')">CADASTRAR</button>
     </div>
 </div>
@@ -82,7 +85,6 @@
         <h2>👤 Novo Piloto</h2>
         <input type="password" id="pass_piloto" placeholder="Senha ADM">
         <input type="text" id="piloto_nome" placeholder="Nome Completo">
-        <input type="text" id="piloto_apelido" placeholder="Apelido">
         <p style="font-size: 12px; color: #888;">Selecione os campeonatos:</p>
         <select id="piloto_vinc" multiple size="5"></select>
         <button onclick="salvar('pilotos')">CADASTRAR PILOTO</button>
@@ -98,11 +100,23 @@
 </nav>
 
 <script>
-    // --- CONFIGURAÇÃO ---
+    // --- CONFIGURAÇÃO FIREBASE ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGaQnACY0Qi7efLxL0PZ5-X3rbLBGaPyk",
+        authDomain: "ranking-kart-system.firebaseapp.com",
+        databaseURL: "https://ranking-kart-system-default-rtdb.firebaseio.com",
+        projectId: "ranking-kart-system",
+        storageBucket: "ranking-kart-system.firebasestorage.app",
+        messagingSenderId: "933803342903",
+        appId: "1:933803342903:web:9f7d6a5f7e7e8c1b9a9d1c"
+    };
+
+    // Inicializa o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // URL da sua Planilha Google
     const URL_API = "https://script.google.com/macros/s/AKfycbwWIL3hrPq6w6pCjCS5-ZYwv3hAY8Rr1ZjYxC-tEh7f9enmpTsZ7fzu9ilWpioQGQEc/exec";
-    const GITHUB_USER = "P3dro-crypto";
-    const GITHUB_REPO = "ranking-kart";
-    const TOKEN_GITHUB = "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";
 
     let DB = { campeonatos: [], pilotos: [], resultados: [] };
 
@@ -116,7 +130,7 @@
         {id: "232194", nome: "LUCAS OLIVEIRA"}
     ];
 
-    // CARREGAR DADOS INICIAIS
+    // CARREGAR DADOS
     async function fetchData() {
         try {
             const res = await fetch(URL_API);
@@ -124,18 +138,15 @@
             document.getElementById('loading').style.display = 'none';
             popularFiltros();
             renderRanking();
-        } catch (erro) {
-            console.error("Erro:", erro);
-        }
+        } catch (erro) { console.error("Erro:", erro); }
     }
 
-    // NAVEGAÇÃO
     function show(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.getElementById(id).classList.add('active');
     }
 
-    // BACKUP MÚLTIPLO NO GITHUB
+    // --- NOVA FUNÇÃO DE BACKUP (FIREBASE) ---
     async function fazerBackupEProcessar() {
         const fileInput = document.getElementById('fileInputMultiple');
         const files = fileInput.files;
@@ -143,44 +154,39 @@
 
         if (files.length === 0) return alert("Selecione os arquivos!");
         
-        status.innerHTML = `⏳ Processando ${files.length} arquivos...`;
+        status.innerHTML = `⏳ Iniciando backup no Firebase...`;
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const nomeMinusculo = file.name.toLowerCase();
-            
-            // Define o tipo baseado no nome do arquivo automaticamente
-            let tipo = "anexo";
-            if (nomeMinusculo.includes("final")) tipo = "resultado_final";
-            else if (nomeMinusculo.includes("volta")) tipo = "volta_a_volta";
-            else if (nomeMinusculo.includes("grid") || nomeMinusculo.includes("classi")) tipo = "classificacao";
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const nomeMinusculo = file.name.toLowerCase();
+                
+                let tipo = "anexo";
+                if (nomeMinusculo.includes("final")) tipo = "resultado_final";
+                else if (nomeMinusculo.includes("volta")) tipo = "volta_a_volta";
+                else if (nomeMinusculo.includes("grid") || nomeMinusculo.includes("classi")) tipo = "classificacao";
 
-            status.innerHTML = `⏳ Enviando (${i+1}/${files.length}): ${file.name}`;
-
-            const conteudoRaw = await file.text();
-            const conteudoBase64 = btoa(unescape(encodeURIComponent(conteudoRaw)));
-            const dataPath = new Date().toISOString().split('T')[0];
-            const caminho = `historico-corridas/${dataPath}-${tipo}-${file.name}`;
-
-            try {
-                const res = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${caminho}`, {
-                    method: "PUT",
-                    headers: { "Authorization": `token ${TOKEN_GITHUB}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ message: `Backup Automático: ${file.name}`, content: conteudoBase64 })
+                const conteudoRaw = await file.text();
+                const dataHora = new Date().toLocaleString('pt-BR');
+                
+                // Salva no Realtime Database do Firebase
+                const idUnico = Date.now() + "_" + i;
+                await database.ref('backups/' + idUnico).set({
+                    nomeArquivo: file.name,
+                    tipo: tipo,
+                    dataUpload: dataHora,
+                    conteudo: conteudoRaw
                 });
 
-                if (res.ok) {
-                    // Se for o arquivo de resultado final, mostra os botões de lançar
-                    if (tipo === "resultado_final") analisarHTML(conteudoRaw);
-                }
-            } catch (err) {
-                console.error("Erro ao enviar:", file.name);
+                if (tipo === "resultado_final") analisarHTML(conteudoRaw);
             }
+            status.innerHTML = `✅ ${files.length} arquivos salvos com sucesso no Firebase!`;
+        } catch (error) {
+            console.error(error);
+            status.innerHTML = `❌ Erro no Firebase: ${error.message}`;
         }
-        status.innerHTML = `✅ ${files.length} arquivos salvos com sucesso no GitHub!`;
     }
 
-    // ANALISAR O HTML FILTRANDO PELO CAMPEONATO
     function analisarHTML(htmlText) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
@@ -193,22 +199,17 @@
             MEUS_PILOTOS.forEach(p => {
                 if (texto.includes(p.id)) {
                     const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
-                    encontrados.push({ nome: p.nome, pos: cols[0], original: cols.join(' | ') });
+                    encontrados.push({ nome: p.nome, pos: cols[0] });
                 }
             });
         });
 
-        if (encontrados.length === 0) {
-            preview.innerHTML = "<p>Nenhum piloto do seu campeonato encontrado no resultado final.</p>";
-            return;
-        }
-
-        let htmlPreview = "<h3>Pilotos Identificados no Resultado:</h3>";
+        let htmlPreview = encontrados.length > 0 ? "<h3>Pilotos no Resultado:</h3>" : "<p>Nenhum piloto encontrado.</p>";
         encontrados.forEach(item => {
             htmlPreview += `
                 <div class="form-card" style="background:#252a34; font-size:12px; margin-bottom:10px;">
                     <strong>${item.nome}</strong> - Posição: ${item.pos}<br>
-                    <button onclick="preencherCadastro('${item.nome}', '${item.pos}')" style="padding:5px; width:auto; font-size:10px;">Lançar este resultado</button>
+                    <button onclick="preencherCadastro('${item.nome}', '${item.pos}')" style="padding:5px; width:auto; font-size:10px;">Lançar</button>
                 </div>`;
         });
         preview.innerHTML = htmlPreview;
@@ -218,34 +219,30 @@
         show('lançar');
         document.getElementById('sel_piloto').value = nome;
         document.getElementById('res_pos').value = parseInt(pos) || "";
-        alert("Dados enviados para a aba Lançar!");
     }
 
-    // RESTANTE DAS FUNÇÕES ORIGINAIS
     function renderRanking() {
         const container = document.getElementById('rankingContent');
         const filtroCamp = document.getElementById('filtro_rank_camp').value; 
         if (!DB.resultados || DB.resultados.length === 0) {
-            container.innerHTML = "<p style='color: #888;'>Nenhum resultado lançado.</p>";
+            container.innerHTML = "<p style='color: #888;'>Nenhum resultado.</p>";
             return;
         }
         const soma = {};
         const resultadosFiltrados = filtroCamp ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === filtroCamp) : DB.resultados;
+        
         resultadosFiltrados.forEach(r => {
             const nome = r.piloto || r.Piloto;
             const pts = parseInt(r.pontos || r.Pontos) || 0;
             if (nome) soma[nome] = (soma[nome] || 0) + pts;
         });
+
         const rankingSorted = Object.entries(soma)
-            .map(([nome, pontos]) => {
-                const pDados = DB.pilotos.find(p => p.nome === nome);
-                return { nome, apelido: pDados ? pDados.apelido : "", pontos };
-            })
-            .sort((a, b) => b.pontos - a.pontos);
+            .sort((a, b) => b[1] - a[1]);
 
         let html = `<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>`;
         rankingSorted.forEach((p, i) => {
-            html += `<tr><td>${i + 1}º</td><td>${p.nome}</td><td>${p.pontos}</td></tr>`;
+            html += `<tr><td>${i + 1}º</td><td>${p[0]}</td><td>${p[1]}</td></tr>`;
         });
         container.innerHTML = html + `</table>`;
     }
@@ -280,7 +277,6 @@
         } else if(tipo === 'campeonatos') {
             payload.senha = document.getElementById('pass_camp').value;
             payload.nome = document.getElementById('camp_nome').value;
-            payload.descricao = document.getElementById('camp_desc').value;
             payload.inicio = document.getElementById('camp_ini').value;
         } else if(tipo === 'pilotos') {
             payload.senha = document.getElementById('pass_piloto').value;
@@ -294,8 +290,8 @@
             if (txt.includes("Sucesso")) {
                 btn.innerText = "✅ SUCESSO!";
                 setTimeout(() => location.reload(), 1500);
-            } else { alert("Erro: Senha incorreta"); btn.disabled = false; btn.innerText = originalText; }
-        } catch (e) { alert("Erro na conexão"); btn.disabled = false; btn.innerText = originalText; }
+            } else { alert("Erro: Dados ou senha inválidos"); btn.disabled = false; btn.innerText = originalText; }
+        } catch (e) { alert("Erro de rede"); btn.disabled = false; btn.innerText = originalText; }
     }
 
     fetchData();
