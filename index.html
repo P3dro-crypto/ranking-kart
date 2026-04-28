@@ -14,15 +14,16 @@
         .section { display: none; padding: 20px; }
         .active { display: block; }
         .navbar { position: fixed; bottom: 0; width: 100%; background: var(--card); display: flex; justify-content: space-around; padding: 10px 0; border-top: 2px solid var(--red); z-index: 1000; }
-        .nav-item { color: white; text-decoration: none; font-size: 12px; text-align: center; cursor: pointer; }
+        .nav-item { color: white; text-decoration: none; font-size: 11px; text-align: center; cursor: pointer; min-width: 50px; }
         input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #333; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 15px; background: var(--red); border: none; color: white; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; }
         .form-card { background: var(--card); padding: 20px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card); border-radius: 10px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card); border-radius: 10px; overflow: hidden; font-size: 14px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { background: #252a34; color: var(--red); }
         tr:nth-child(even) { background: #252a34; }
-        .import-box { border: 1px dashed #555; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+        .btn-view { background: #4CAF50; padding: 5px 10px; font-size: 10px; width: auto; margin: 0; }
+        .piloto-card { display: flex; justify-content: space-between; align-items: center; background: #252a34; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--red); }
     </style>
 </head>
 <body>
@@ -31,28 +32,24 @@
 
 <div id="dash" class="section active">
     <h2>🏆 Ranking</h2>
-    <div class="form-card" style="margin-bottom: 15px; padding: 10px;">
-        <select id="filtro_rank_camp" onchange="renderRanking()">
-            <option value="">📊 Ranking Geral (Todos)</option>
-        </select>
+    <div class="form-card">
+        <select id="filtro_rank_camp" onchange="renderRanking()"></select>
     </div>
-    <div id="rankingContent">
-        <p style="color: #888;">Carregando posições...</p>
-    </div>
+    <div id="rankingContent"></div>
+</div>
+
+<div id="historico" class="section">
+    <h2>📜 Histórico de Backups</h2>
+    <div id="listaHistorico">Carregando arquivos...</div>
 </div>
 
 <div id="importar" class="section">
     <div class="form-card">
-        <h2>📂 Importar e Persistir</h2>
-        <p style="font-size: 12px; color: #888;">Selecione os 3 arquivos de uma vez. O backup será salvo no Firebase.</p>
-        
-        <div class="import-box">
-            <input type="file" id="fileInputMultiple" accept=".html" multiple>
-            <button onclick="fazerBackupEProcessar()" style="background: #2196F3;">SALVAR NO FIREBASE E ANALISAR</button>
-        </div>
-        
-        <div id="statusImport" style="text-align: center; font-size: 13px; color: #ffeb3b;"></div>
-        <div id="previewImportacao" style="margin-top: 20px;"></div>
+        <h2>📂 Importar Arquivos</h2>
+        <input type="file" id="fileInputMultiple" accept=".html" multiple>
+        <button onclick="fazerBackupEProcessar()" style="background: #2196F3;">SALVAR NO FIREBASE</button>
+        <div id="statusImport" style="text-align: center; margin-top: 10px; color: #ffeb3b;"></div>
+        <div id="previewImportacao" style="margin-top: 15px;"></div>
     </div>
 </div>
 
@@ -60,47 +57,25 @@
     <div class="form-card">
         <h2>🏎️ Lançar Corrida</h2>
         <input type="password" id="pass_res" placeholder="Senha ADM">
-        <select id="sel_camp" onchange="filtrarPilotosPorCamp()"><option value="">Selecione o Campeonato</option></select>
-        <select id="sel_piloto"><option value="">Selecione o Piloto</option></select>
+        <select id="sel_camp" onchange="filtrarPilotosPorCamp()"></select>
+        <select id="sel_piloto">
+            <option value="">Selecione o Piloto</option>
+        </select>
         <input type="number" id="res_pos" placeholder="Posição Final">
         <input type="number" id="res_etapa" placeholder="Número da Etapa">
         <input type="date" id="res_data">
-        <button onclick="salvar('resultados')">GRAVAR RESULTADO</button>
-    </div>
-</div>
-
-<div id="cad_camp" class="section">
-    <div class="form-card">
-        <h2>🏁 Novo Campeonato</h2>
-        <input type="password" id="pass_camp" placeholder="Senha ADM">
-        <input type="text" id="camp_nome" placeholder="Nome do Campeonato">
-        <textarea id="camp_desc" placeholder="Descrição"></textarea>
-        <label>Início:</label><input type="date" id="camp_ini">
-        <button onclick="salvar('campeonatos')">CADASTRAR</button>
-    </div>
-</div>
-
-<div id="cad_piloto" class="section">
-    <div class="form-card">
-        <h2>👤 Novo Piloto</h2>
-        <input type="password" id="pass_piloto" placeholder="Senha ADM">
-        <input type="text" id="piloto_nome" placeholder="Nome Completo">
-        <p style="font-size: 12px; color: #888;">Selecione os campeonatos:</p>
-        <select id="piloto_vinc" multiple size="5"></select>
-        <button onclick="salvar('pilotos')">CADASTRAR PILOTO</button>
+        <button onclick="salvar('resultados')">GRAVAR NO GOOGLE SHEETS</button>
     </div>
 </div>
 
 <nav class="navbar">
     <div class="nav-item" onclick="show('dash')">📊<br>Rank</div>
+    <div class="nav-item" onclick="show('historico'); carregarHistorico();">📜<br>Histórico</div>
     <div class="nav-item" onclick="show('importar')">📂<br>Importar</div>
     <div class="nav-item" onclick="show('lançar')">⏱️<br>Lançar</div>
-    <div class="nav-item" onclick="show('cad_camp')">🏁<br>Camps</div>
-    <div class="nav-item" onclick="show('cad_piloto')">👤<br>Pilotos</div>
 </nav>
 
 <script>
-    // --- CONFIGURAÇÃO FIREBASE ---
     const firebaseConfig = {
         apiKey: "AIzaSyCGaQnACY0Qi7efLxL0PZ5-X3rbLBGaPyk",
         authDomain: "ranking-kart-system.firebaseapp.com",
@@ -111,26 +86,13 @@
         appId: "1:933803342903:web:9f7d6a5f7e7e8c1b9a9d1c"
     };
 
-    // Inicializa o Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-
-    // URL da sua Planilha Google
     const URL_API = "https://script.google.com/macros/s/AKfycbwWIL3hrPq6w6pCjCS5-ZYwv3hAY8Rr1ZjYxC-tEh7f9enmpTsZ7fzu9ilWpioQGQEc/exec";
 
     let DB = { campeonatos: [], pilotos: [], resultados: [] };
+    const MEUS_PILOTOS = [{id: "41938", nome: "LEONARDO LEMES"}, {id: "231138", nome: "RODRIGO CRUZ"}, {id: "232869", nome: "JOÃO VICTOR"}, {id: "4196", nome: "JÚLIO CEZAR"}, {id: "51107", nome: "DANILO OLIVEIRA"}, {id: "232984", nome: "FRANCISCO CAMILLO"}, {id: "232194", nome: "LUCAS OLIVEIRA"}];
 
-    const MEUS_PILOTOS = [
-        {id: "41938", nome: "LEONARDO LEMES"},
-        {id: "231138", nome: "RODRIGO CRUZ"},
-        {id: "232869", nome: "JOÃO VICTOR"},
-        {id: "4196", nome: "JÚLIO CEZAR"},
-        {id: "51107", nome: "DANILO OLIVEIRA"},
-        {id: "232984", nome: "FRANCISCO CAMILLO"},
-        {id: "232194", nome: "LUCAS OLIVEIRA"}
-    ];
-
-    // CARREGAR DADOS
     async function fetchData() {
         try {
             const res = await fetch(URL_API);
@@ -138,7 +100,7 @@
             document.getElementById('loading').style.display = 'none';
             popularFiltros();
             renderRanking();
-        } catch (erro) { console.error("Erro:", erro); }
+        } catch (e) { console.error(e); }
     }
 
     function show(id) {
@@ -146,152 +108,137 @@
         document.getElementById(id).classList.add('active');
     }
 
-    // --- NOVA FUNÇÃO DE BACKUP (FIREBASE) ---
     async function fazerBackupEProcessar() {
-        const fileInput = document.getElementById('fileInputMultiple');
-        const files = fileInput.files;
+        const files = document.getElementById('fileInputMultiple').files;
         const status = document.getElementById('statusImport');
-
         if (files.length === 0) return alert("Selecione os arquivos!");
         
-        status.innerHTML = `⏳ Iniciando backup no Firebase...`;
-
-        try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const nomeMinusculo = file.name.toLowerCase();
-                
-                let tipo = "anexo";
-                if (nomeMinusculo.includes("final")) tipo = "resultado_final";
-                else if (nomeMinusculo.includes("volta")) tipo = "volta_a_volta";
-                else if (nomeMinusculo.includes("grid") || nomeMinusculo.includes("classi")) tipo = "classificacao";
-
-                const conteudoRaw = await file.text();
-                const dataHora = new Date().toLocaleString('pt-BR');
-                
-                // Salva no Realtime Database do Firebase
-                const idUnico = Date.now() + "_" + i;
-                await database.ref('backups/' + idUnico).set({
-                    nomeArquivo: file.name,
-                    tipo: tipo,
-                    dataUpload: dataHora,
-                    conteudo: conteudoRaw
-                });
-
-                if (tipo === "resultado_final") analisarHTML(conteudoRaw);
-            }
-            status.innerHTML = `✅ ${files.length} arquivos salvos com sucesso no Firebase!`;
-        } catch (error) {
-            console.error(error);
-            status.innerHTML = `❌ Erro no Firebase: ${error.message}`;
+        status.innerHTML = "⏳ Fazendo Backup...";
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const conteudoRaw = await file.text();
+            const idUnico = Date.now() + "_" + i;
+            await database.ref('backups/' + idUnico).set({
+                nomeArquivo: file.name,
+                dataUpload: new Date().toLocaleString('pt-BR'),
+                conteudo: conteudoRaw
+            });
+            if (file.name.toLowerCase().includes("final")) analisarHTML(conteudoRaw);
         }
+        status.innerHTML = "✅ Salvo no Firebase!";
     }
 
     function analisarHTML(htmlText) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, 'text/html');
+        const doc = new DOMParser().parseFromString(htmlText, 'text/html');
         const rows = doc.querySelectorAll('tr');
-        const preview = document.getElementById('previewImportacao');
         let encontrados = [];
-
         rows.forEach(row => {
-            const texto = row.innerText;
             MEUS_PILOTOS.forEach(p => {
-                if (texto.includes(p.id)) {
-                    const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
-                    encontrados.push({ nome: p.nome, pos: cols[0] });
+                if (row.innerText.includes(p.id)) {
+                    encontrados.push({ nome: p.nome, pos: row.querySelectorAll('td')[0].innerText.trim() });
                 }
             });
         });
-
-        let htmlPreview = encontrados.length > 0 ? "<h3>Pilotos no Resultado:</h3>" : "<p>Nenhum piloto encontrado.</p>";
-        encontrados.forEach(item => {
-            htmlPreview += `
-                <div class="form-card" style="background:#252a34; font-size:12px; margin-bottom:10px;">
-                    <strong>${item.nome}</strong> - Posição: ${item.pos}<br>
-                    <button onclick="preencherCadastro('${item.nome}', '${item.pos}')" style="padding:5px; width:auto; font-size:10px;">Lançar</button>
-                </div>`;
+        
+        let h = "<h3>Pilotos Identificados:</h3>";
+        encontrados.forEach(i => {
+            h += `<div class="piloto-card">
+                    <span><strong>${i.nome}</strong> (P${i.pos})</span>
+                    <button onclick="preencher('${i.nome}','${i.pos}')" style="width:auto; padding:5px 15px; margin:0; font-size:12px;">Lançar</button>
+                  </div>`;
         });
-        preview.innerHTML = htmlPreview;
+        document.getElementById('previewImportacao').innerHTML = h;
     }
 
-    function preencherCadastro(nome, pos) {
+    // FUNÇÃO QUE VOCÊ PEDIU: AGORA ELA PREENCHE TUDO!
+    function preencher(nome, pos) {
         show('lançar');
-        document.getElementById('sel_piloto').value = nome;
-        document.getElementById('res_pos').value = parseInt(pos) || "";
+        
+        // 1. Garante que o seletor de pilotos tenha esse piloto (mesmo que o filtro de camp não esteja ativo)
+        const selPiloto = document.getElementById('sel_piloto');
+        if (!Array.from(selPiloto.options).some(opt => opt.value === nome)) {
+            const opt = document.createElement('option');
+            opt.value = nome;
+            opt.text = nome;
+            selPiloto.add(opt);
+        }
+        
+        // 2. Preenche os campos
+        selPiloto.value = nome;
+        document.getElementById('res_pos').value = parseInt(pos);
+        
+        // 3. Coloca o cursor na etapa pra você ganhar tempo
+        document.getElementById('res_etapa').focus();
+    }
+
+    function carregarHistorico() {
+        const lista = document.getElementById('listaHistorico');
+        database.ref('backups').limitToLast(15).once('value', (snapshot) => {
+            let html = "<table><tr><th>Arquivo</th><th>Data</th><th>Ação</th></tr>";
+            snapshot.forEach((child) => {
+                const item = child.val();
+                html += `<tr>
+                    <td style="font-size:11px">${item.nomeArquivo}</td>
+                    <td style="font-size:11px">${item.dataUpload.split(' ')[0]}</td>
+                    <td><button class="btn-view" onclick="verConteudo('${child.key}')">VER</button></td>
+                </tr>`;
+            });
+            lista.innerHTML = html + "</table>";
+        });
+    }
+
+    function verConteudo(key) {
+        database.ref('backups/' + key).once('value', (s) => {
+            const win = window.open("", "_blank");
+            win.document.write(s.val().conteudo);
+        });
     }
 
     function renderRanking() {
-        const container = document.getElementById('rankingContent');
-        const filtroCamp = document.getElementById('filtro_rank_camp').value; 
-        if (!DB.resultados || DB.resultados.length === 0) {
-            container.innerHTML = "<p style='color: #888;'>Nenhum resultado.</p>";
-            return;
-        }
+        const f = document.getElementById('filtro_rank_camp').value;
+        const res = f ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === f) : DB.resultados;
         const soma = {};
-        const resultadosFiltrados = filtroCamp ? DB.resultados.filter(r => (r.campeonato || r.Campeonato) === filtroCamp) : DB.resultados;
-        
-        resultadosFiltrados.forEach(r => {
-            const nome = r.piloto || r.Piloto;
-            const pts = parseInt(r.pontos || r.Pontos) || 0;
-            if (nome) soma[nome] = (soma[nome] || 0) + pts;
-        });
-
-        const rankingSorted = Object.entries(soma)
-            .sort((a, b) => b[1] - a[1]);
-
-        let html = `<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>`;
-        rankingSorted.forEach((p, i) => {
-            html += `<tr><td>${i + 1}º</td><td>${p[0]}</td><td>${p[1]}</td></tr>`;
-        });
-        container.innerHTML = html + `</table>`;
+        res.forEach(r => { const n = r.piloto || r.Piloto; soma[n] = (soma[n] || 0) + (parseInt(r.pontos || r.Pontos) || 0); });
+        const sorted = Object.entries(soma).sort((a,b) => b[1] - a[1]);
+        let h = "<table><tr><th>Pos</th><th>Piloto</th><th>Pts</th></tr>";
+        sorted.forEach((p, i) => h += `<tr><td>${i+1}º</td><td>${p[0]}</td><td>${p[1]}</td></tr>`);
+        document.getElementById('rankingContent').innerHTML = h + "</table>";
     }
 
     function popularFiltros() {
         const opts = DB.campeonatos.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
         document.getElementById('filtro_rank_camp').innerHTML = '<option value="">📊 Ranking Geral</option>' + opts;
         document.getElementById('sel_camp').innerHTML = '<option value="">Selecione o Campeonato</option>' + opts;
-        document.getElementById('piloto_vinc').innerHTML = opts;
+        
+        // Popular o seletor de pilotos com TODOS inicialmente
+        const pOpts = DB.pilotos.map(p => `<option value="${p.nome}">${p.nome}</option>`).sort().join('');
+        document.getElementById('sel_piloto').innerHTML = '<option value="">Selecione o Piloto</option>' + pOpts;
     }
 
     function filtrarPilotosPorCamp() {
-        const campSel = document.getElementById('sel_camp').value;
-        const filtrados = DB.pilotos.filter(p => p.vinculos && p.vinculos.includes(campSel));
-        document.getElementById('sel_piloto').innerHTML = filtrados.map(p => `<option value="${p.nome}">${p.nome}</option>`).join('');
+        const c = document.getElementById('sel_camp').value;
+        if(!c) return;
+        const p = DB.pilotos.filter(pil => pil.vinculos && pil.vinculos.includes(c));
+        document.getElementById('sel_piloto').innerHTML = '<option value="">Selecione o Piloto</option>' + p.map(pil => `<option value="${pil.nome}">${pil.nome}</option>`).join('');
     }
 
     async function salvar(tipo) {
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "⏳ ENVIANDO...";
-        btn.disabled = true;
-
-        let payload = { tipo: tipo };
+        const btn = event.target; btn.innerText = "⏳ ENVIANDO..."; btn.disabled = true;
+        let p = { tipo: tipo };
         if(tipo === 'resultados') {
-            payload.senha = document.getElementById('pass_res').value;
-            payload.campeonato = document.getElementById('sel_camp').value;
-            payload.piloto = document.getElementById('sel_piloto').value;
-            payload.posicao = document.getElementById('res_pos').value;
-            payload.etapa = document.getElementById('res_etapa').value;
-            payload.data = document.getElementById('res_data').value;
-        } else if(tipo === 'campeonatos') {
-            payload.senha = document.getElementById('pass_camp').value;
-            payload.nome = document.getElementById('camp_nome').value;
-            payload.inicio = document.getElementById('camp_ini').value;
-        } else if(tipo === 'pilotos') {
-            payload.senha = document.getElementById('pass_piloto').value;
-            payload.nome = document.getElementById('piloto_nome').value;
-            payload.vinculos = Array.from(document.getElementById('piloto_vinc').selectedOptions).map(o => o.value).join(', ');
+            p.senha = document.getElementById('pass_res').value;
+            p.campeonato = document.getElementById('sel_camp').value;
+            p.piloto = document.getElementById('sel_piloto').value;
+            p.posicao = document.getElementById('res_pos').value;
+            p.etapa = document.getElementById('res_etapa').value;
+            p.data = document.getElementById('res_data').value;
         }
-
         try {
-            const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
-            const txt = await res.text();
-            if (txt.includes("Sucesso")) {
-                btn.innerText = "✅ SUCESSO!";
-                setTimeout(() => location.reload(), 1500);
-            } else { alert("Erro: Dados ou senha inválidos"); btn.disabled = false; btn.innerText = originalText; }
-        } catch (e) { alert("Erro de rede"); btn.disabled = false; btn.innerText = originalText; }
+            const r = await fetch(URL_API, { method: 'POST', body: JSON.stringify(p) });
+            const t = await r.text();
+            if (t.includes("Sucesso")) { alert("✅ Corrida gravada com sucesso!"); location.reload(); }
+            else { alert("❌ Erro: Senha incorreta ou dados faltando."); btn.disabled = false; btn.innerText = "GRAVAR NO GOOGLE SHEETS"; }
+        } catch (e) { alert("Erro de rede"); btn.disabled = false; }
     }
 
     fetchData();
