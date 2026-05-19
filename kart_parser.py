@@ -350,3 +350,145 @@ def inicializar() -> None:
 
 
 inicializar()
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#PARTE NOVA
+#-----------------------------------------------------------------------------------------------------------------
+import streamlit as st
+import pandas as pd
+from bs4 import BeautifulSoup
+import google.generativeai as genai
+
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Kart Inteligente", page_icon="🏎️", layout="wide")
+st.title("🏎️ Analisador de Telemetria - Kart Inteligente")
+
+# --- CHAVE DA API ---
+# No futuro, podemos esconder isso, mas para teste cole sua chave aqui:
+CHAVE_GEMINI = "AIzaSyD3AinSv_u6CtzCnJO5oY0Y-IpDBiEDe-8" 
+
+if CHAVE_GEMINI == "SUA_CHAVE_DO_GEMINI_AQUI":
+    st.error("Por favor, coloque a sua chave real do Gemini no código para funcionar!")
+else:
+    genai.configure(api_key=CHAVE_GEMINI)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    config_ia = genai.types.GenerationConfig(temperature=0.1)
+
+# --- FUNÇÕES DO MOTOR DE ANÁLISE ---
+def extrair_dados(html_voltas, html_tomada):
+    # Processar Volta a Volta
+    soup_v = BeautifulSoup(html_voltas, 'html.parser')
+    dados_v = []
+    piloto_atual = None
+    tabela_v = soup_v.find('table', class_='points')
+    for linha in tabela_v.find_all('tr')[1:]:
+        cols = linha.find_all('td')
+        if len(cols) == 1 and cols[0].has_attr('colspan'):
+            piloto_atual = cols[0].get_text(strip=True)
+            continue
+        if len(cols) == 10:
+            dados_v.append([piloto_atual] + [c.get_text(strip=True) for c in cols])
+    
+    df_voltas = pd.DataFrame(dados_v, columns=['Piloto', 'Hora', 'Volta', 'Lider', 'Tempo', 'Vel', 'SFSpd', 'SFTm', 'S1', 'S2', 'S3'])
+
+    # Processar Tomada
+    soup_t = BeautifulSoup(html_tomada, 'html.parser')
+    dados_t = []
+    tabela_t = soup_t.find('table', class_='points')
+    for linha in tabela_t.find_all('tr')[1:]:
+        cols = [c.get_text(strip=True) for c in linha.find_all('td')]
+        if len(cols) >= 9:
+            dados_t.append({'Piloto': cols[2], 'Pos_Grid': cols[0], 'Tempo_Quali': cols[8]})
+    df_tomada = pd.DataFrame(dados_t)
+    
+    return df_voltas, df_tomada
+
+def preparar_contexto_mestre(df_voltas, df_tomada, pilotos_interesse):
+    resumo = ""
+    for piloto in pilotos_interesse:
+        df_p_vlt = df_voltas[df_voltas['Piloto'].str.contains(piloto, case=False)].copy()
+        df_p_tom = df_tomada[df_tomada['Piloto'].str.contains(piloto, case=False)]
+        if df_p_vlt.empty: continue
+        
+        resumo += f"\n### PILOTO: {piloto}\n"
+        if not df_p_tom.empty:
+            t = df_p_tom.iloc[0]
+            resumo += f"GRID: P{t['Pos_Grid']} | Quali: {t['Tempo_Quali']}\n"
+        resumo += "VOLTAS CORRIDA:\n" + df_p_vlt[['Volta', 'Tempo', 'S1', 'S2', 'S3']].to_string(index=False) + "\n"
+    return resumo
+
+# --- INTERFACE DO SITE (FRONT-END) ---
+col1, col2 = st.columns(2)
+
+with col1:
+    arquivo_voltas = st.file_uploader("Suba o arquivo VOLTA A VOLTA (.html)", type=["html"])
+
+with col2:
+    arquivo_tomada = st.file_uploader("Suba o arquivo da TOMADA DE TEMPO (.html)", type=["html"])
+
+# Pilotos fixos do seu grupo
+pilotos_do_grupo = ["DANILO OLIVEIRA", "LEONARDO LEMES", "JULIO CESAR ALVES", "RODRIGO CRUZ", "JOÃO VICTOR ", "JÚLIO CEZAR MOSCHETTO"]
+
+if arquivo_voltas and arquivo_tomada and CHAVE_GEMINI != "SUA_CHAVE_DO_GEMINI_AQUI":
+    # Lendo o conteúdo dos arquivos carregados pelo usuário
+    conteudo_voltas = arquivo_voltas.read().decode("utf-8")
+    conteudo_tomada = arquivo_tomada.read().decode("utf-8")
+    
+    # Processando os dados
+    with st.spinner("Processando os tempos de pista..."):
+        df_v, df_t = extrair_dados(conteudo_voltas, conteudo_tomada)
+    st.success("Dados carregados com sucesso!")
+    
+    # --- ABA 1: RANKING GERAL ---
+    st.header("🏆 Ranking Geral do Grupo")
+    if st.button("Gerar Ranking Geral"):
+        with st.spinner("A IA está analisando o grupo..."):
+            contexto = preparar_contexto_mestre(df_v, df_t, pilotos_do_grupo)
+            prompt_ranking = f"Você é um analista de Kart. Gere o RANKING GERAL (Velocidade Pura, Melhor Conjunto e Potencial) para esses dados: {contexto}"
+            resposta_ranking = model.generate_content(prompt_ranking, generation_config=config_ia)
+            st.text_area("Resultado do Ranking", resposta_ranking.text, height=350)
+
+    # --- ABA 2: HISTÓRIA INDIVIDUAL ---
+    st.header("👤 Análise Individual por Piloto")
+    piloto_selecionado = st.selectbox("Escolha o piloto para o Auto-Prompt:", pilotos_do_grupo)
+    
+    if st.button(f"Gerar História de {piloto_selecionado}"):
+        with st.spinner(f"Criando o relatório do {piloto_selecionado}..."):
+            contexto_individual = preparar_contexto_mestre(df_v, df_t, [piloto_selecionado])
+            
+            # O seu molde rígido e padronizado
+            prompt_individual = f"""
+            Você é um analista de telemetria de Kart profissional.
+            Sua missão é gerar um relatório de desempenho seguindo RIGOROSAMENTE o modelo abaixo.
+            Não use negritos em excesso, não mude os títulos e mantenha o tom técnico e direto.
+
+            --- MODELO A SER SEGUIDO ---
+            Nome do Piloto
+            
+            Resultado
+            [Nome] fez P[X] na tomada, com [Tempo], e terminou a prova com [X] voltas e melhor volta de [Tempo].
+            
+            Leitura do desempenho
+            [Análise resumida do início, meio e fim da prova].
+            
+            Pontos positivos:
+            * Item 1
+            * Item 2
+            
+            Pontos de atenção:
+            * Item 1
+            * Item 2
+            
+            Diagnóstico
+            [Resumo técnico do que impediu um resultado melhor].
+            
+            Próximo foco
+            [Dica prática para a próxima corrida].
+            --- FIM DO MODELO ---
+
+            DADOS REAIS:
+            {contexto_individual}
+            """
+            resposta_individual = model.generate_content(prompt_individual, generation_config=config_ia)
+            st.text_area(f"Relatório de {piloto_selecionado}", resposta_individual.text, height=450)
