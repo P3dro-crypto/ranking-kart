@@ -2438,3 +2438,47 @@ DADOS: \${dadosTelemetriaTxt}`;
         return "Erro ao chamar a Inteligência Artificial.";
     }
 }
+
+// =====================================================================
+// 📌 ATIVAÇÃO DO BOTÃO DA IA NA TELA
+// =====================================================================
+
+document.getElementById("btnGerarIA").addEventListener("click", async () => {
+    const statusDiv = document.getElementById("statusIA");
+    const resultadoDiv = document.getElementById("resultadoIA");
+    const selectPiloto = document.getElementById("selectPilotoIA");
+    const inputArquivo = document.getElementById("fileImportacaoUnico");
+    
+    const pilotoSelecionado = selectPiloto.value;
+    
+    // Verifica se o usuário selecionou um arquivo
+    if (!inputArquivo.files || inputArquivo.files.length === 0) {
+        statusDiv.innerHTML = "❌ Por favor, selecione e suba o arquivo 'Volta a volta' primeiro.";
+        return;
+    }
+    
+    statusDiv.innerHTML = "⏳ Aguarde... O Python está extraindo a telemetria e enviando para o Gemini...";
+    resultadoDiv.style.display = "none";
+    
+    try {
+        // 1. Lendo o arquivo HTML enviado pelo usuário
+        const arquivo = inputArquivo.files[0];
+        const htmlTexto = await arquivo.text();
+        
+        // 2. Chama a função do Python (PyScript) que limpa os tempos da pista
+        // Ela gera o resumão em texto que a IA precisa
+        const dadosTelemetriaLimpos = window.pyodide.globals.get("extrair_texto_voltas_pyscript")(htmlTexto);
+        
+        // 3. Envia os dados limpos para a API do Gemini que configuramos no JS
+        const relatorioFinalIA = await gerarHistoriaPilotoComIA(dadosTelemetriaLimpos, pilotoSelecionado);
+        
+        // 4. Mostra o resultado na tela dentro da caixinha preta
+        statusDiv.innerHTML = "✅ Relatório gerado com sucesso pelo Gemini!";
+        resultadoDiv.innerText = relatorioFinalIA;
+        resultadoDiv.style.display = "block";
+        
+    } catch (erro) {
+        console.error(erro);
+        statusDiv.innerHTML = "❌ Erro ao processar: certifique-se de ter selecionado o tipo 'Volta a volta' e subido o arquivo correto.";
+    }
+});
