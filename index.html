@@ -164,3 +164,24 @@
 <script type="py" src="kart_parser.py" config="./pyscript.toml"></script>
 </body>
 </html>
+
+<div id="bloco-ia-corrida" style="margin-top: 20px; padding: 15px; border: 1px solid #333; background: #151515; border-radius: 8px;">
+    <label for="selectPilotoIA" style="color: #fff; font-weight: bold; display: block; margin-bottom: 5px;">Escolha o Piloto para Análise da IA:</label>
+    <select id="selectPilotoIA" style="padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; width: 100%; max-width: 300px; margin-bottom: 15px;">
+        <option value="DANILO OLIVEIRA">DANILO OLIVEIRA</option>
+        <option value="LEONARDO LEMES">LEONARDO LEMES</option>
+        <option value="JULIO CESAR ALVES">JULIO CESAR ALVES</option>
+        <option value="RODRIGO CRUZ">RODRIGO CRUZ</option>
+        <option value="JOÃO VICTOR">JOÃO VICTOR</option>
+        <option value="JÚLIO CEZAR MOSCHETTO">JÚLIO CEZAR MOSCHETTO</option>
+    </select>
+
+    <button id="btnGerarIA" style="background: #e50914; color: #fff; border: none; padding: 10px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; display: block;">
+        🏎️ Gerar História Individual com IA
+    </button>
+
+    <div id="statusIA" style="margin-top: 10px; color: #aaa; font-style: italic;"></div>
+
+    <div id="resultadoIA" style="margin-top: 15px; white-space: pre-wrap; background: #000; color: #00ff00; padding: 15px; border-radius: 5px; font-family: monospace; display: none; border: 1px solid #222;">
+        </div>
+</div>
