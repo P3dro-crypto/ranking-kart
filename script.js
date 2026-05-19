@@ -2440,45 +2440,52 @@ DADOS: \${dadosTelemetriaTxt}`;
 }
 
 // =====================================================================
-// 📌 ATIVAÇÃO DO BOTÃO DA IA NA TELA
+// 📌 ATIVAÇÃO CORRIGIDA DO BOTÃO DA IA PARA SITES COM ABAS
 // =====================================================================
 
 document.getElementById("btnGerarIA").addEventListener("click", async () => {
     const statusDiv = document.getElementById("statusIA");
     const resultadoDiv = document.getElementById("resultadoIA");
     const selectPiloto = document.getElementById("selectPilotoIA");
-    const inputArquivo = document.getElementById("fileImportacaoUnico");
     
+    // Captura o input de arquivo único do seu sistema
+    const inputArquivo = document.getElementById("fileImportacaoUnico");
     const pilotoSelecionado = selectPiloto.value;
     
-    // Verifica se o usuário selecionou um arquivo
-    if (!inputArquivo.files || inputArquivo.files.length === 0) {
-        statusDiv.innerHTML = "❌ Por favor, selecione e suba o arquivo 'Volta a volta' primeiro.";
+    // 1. Validação de segurança: verifica se o arquivo existe
+    if (!inputArquivo || !inputArquivo.files || inputArquivo.files.length === 0) {
+        statusDiv.innerHTML = "<span style='color: #ff3333;'>❌ Nenhum arquivo de telemetria foi encontrado! Vá até a aba 'Importar', mude o tipo para 'Volta a volta' e selecione o seu arquivo HTML primeiro.</span>";
         return;
     }
     
-    statusDiv.innerHTML = "⏳ Aguarde... O Python está extraindo a telemetria e enviando para o Gemini...";
+    statusDiv.innerHTML = "⏳ Processando os dados de pista e chamando o Gemini... Aguarde.";
     resultadoDiv.style.display = "none";
     
     try {
-        // 1. Lendo o arquivo HTML enviado pelo usuário
+        // 2. Extrai o texto do arquivo HTML carregado
         const arquivo = inputArquivo.files[0];
         const htmlTexto = await arquivo.text();
         
-        // 2. Chama a função do Python (PyScript) que limpa os tempos da pista
-        // Ela gera o resumão em texto que a IA precisa
-        const dadosTelemetriaLimpos = window.pyodide.globals.get("extrair_texto_voltas_pyscript")(htmlTexto);
+        // 3. Executa a extração usando a função limpa do Python via PyScript
+        let dadosTelemetriaLimpos = "";
+        if (window.pyodide && window.pyodide.globals.has("extrair_texto_voltas_pyscript")) {
+            dadosTelemetriaLimpos = window.pyodide.globals.get("extrair_texto_voltas_pyscript")(htmlTexto);
+        } else {
+            // Caso o PyScript ainda esteja indexando a função global
+            statusDiv.innerHTML = "<span style='color: #ffcc00;'>⚠️ O sistema Python ainda está inicializando na página. Aguarde 5 segundos e tente clicar novamente.</span>";
+            return;
+        }
         
-        // 3. Envia os dados limpos para a API do Gemini que configuramos no JS
+        // 4. Dispara os dados para a API do Gemini no JavaScript
         const relatorioFinalIA = await gerarHistoriaPilotoComIA(dadosTelemetriaLimpos, pilotoSelecionado);
         
-        // 4. Mostra o resultado na tela dentro da caixinha preta
-        statusDiv.innerHTML = "✅ Relatório gerado com sucesso pelo Gemini!";
+        // 5. Exibe o resultado final de texto na tela
+        statusDiv.innerHTML = "✅ Relatório gerado com sucesso!";
         resultadoDiv.innerText = relatorioFinalIA;
         resultadoDiv.style.display = "block";
         
     } catch (erro) {
         console.error(erro);
-        statusDiv.innerHTML = "❌ Erro ao processar: certifique-se de ter selecionado o tipo 'Volta a volta' e subido o arquivo correto.";
+        statusDiv.innerHTML = "<span style='color: #ff3333;'>❌ Erro ao gerar análise. Certifique-se de que o arquivo inserido na aba Importar é o HTML de Volta a Volta correto.</span>";
     }
 });
