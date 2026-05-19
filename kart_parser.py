@@ -351,23 +351,22 @@ def inicializar() -> None:
 
 inicializar()
 
-# =====================================================================
-#  📌 INTEGRAÇÃO COM A API DO GEMINI (CORRETO PARA PYSCRIPT)
-# =====================================================================
 
-import google.generativeai as genai
-
-# 1. INSIRA SUA CHAVE REAL DA API DO GEMINI ENTRE AS ASPAS ABAIXO:
-CHAVE_API_GEMINI = "AIzaSyD3AinSv_u6CtzCnJO5oY0Y-IpDBiEDe-8"
+# =====================================================================
+# 📌 APAGUE O CÓDIGO DA IA ANTERIOR E COLE ESTE ABAIXO NO FINAL DO SEU ARQUIVO
+# =====================================================================
 
 def extrair_e_normalizar_voltas(html_voltas):
     """Lê o arquivo de Volta a Volta e organiza a telemetria por piloto"""
+    from bs4 import BeautifulSoup
+    import re
+    
     soup = BeautifulSoup(html_voltas, 'html.parser')
     dados_normalizados = []
     piloto_atual = None
     tabela = soup.find('table', class_='points')
     if not tabela:
-        return pd.DataFrame()
+        return "[]"
         
     linhas = tabela.find_all('tr')[1:]
     for linha in linhas:
@@ -378,85 +377,14 @@ def extrair_e_normalizar_voltas(html_voltas):
             continue
         if len(colunas) == 10:
             dados_volta = [col.get_text(strip=True) for col in colunas]
-            dados_normalizados.append([piloto_atual] + dados_volta)
+            dados_normalizados.append({
+                "Piloto": piloto_atual,
+                "Volta": dados_volta[1],
+                "Tempo": dados_volta[3],
+                "S1": dados_volta[7],
+                "S2": dados_volta[8],
+                "S3": dados_volta[9]
+            })
             
-    colunas_nomes = ['Piloto', 'Hora', 'Volta', 'Volta_Lider', 'Tempo_Volta', 'Velocidade', 'SFSpd', 'SFSpd_Tm', 'S1', 'S2', 'S3']
-    return pd.DataFrame(dados_normalizados, columns=colunas_nomes)
-
-
-def chamar_gemini_individual(html_resultado_final, html_volta_a_volta, nome_piloto):
-    """
-    CONEXÃO COM A API DO GEMINI:
-    Envia os dados estruturados do piloto e retorna o relatório no seu molde rígido.
-    """
-    if CHAVE_API_GEMINI == "SUA_CHAVE_AIza_AQUI":
-        return "Erro: Por favor, configure a chave de API do Gemini no arquivo kart_parser.py."
-
-    # Configura a API do Google
-    genai.configure(api_key=CHAVE_API_GEMINI)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    config_ia = genai.types.GenerationConfig(temperature=0.1)
-    
-    # Processa os arquivos usando sua função existente e a nova de voltas
-    df_resultado = carregar_tabela_corrida_html_texto(html_resultado_final, "resultado.html", "resultado_final")
-    df_voltas = extrair_e_normalizar_voltas(html_volta_a_volta)
-    
-    if df_voltas.empty or df_resultado.empty:
-        return "Erro ao processar as tabelas dos arquivos fornecidos."
-        
-    # Filtra a telemetria do piloto escolhido
-    dados_res = df_resultado[df_resultado['driver_name'].str.contains(nome_piloto, case=False)]
-    dados_vlt = df_voltas[df_voltas['Piloto'].str.contains(nome_piloto, case=False)]
-    
-    if dados_vlt.empty or dados_res.empty:
-        return f"Piloto '{nome_piloto}' não foi encontrado nos arquivos enviados."
-        
-    p_res = dados_res.iloc[0]
-    
-    # Monta o resumo técnico estruturado para mandar para a API
-    contexto = f"""
-    DADOS DO PILOTO {nome_piloto}:
-    Posição Final: {p_res['posicao_final']} | Kart: {p_res['kart_numero']}
-    Voltas na corrida: {p_res['voltas']} | Melhor Tempo Cadastrado: {p_res['melhor_tempo']}
-    
-    TELEMETRIA COMPLETA DA CORRIDA:
-    {dados_vlt[['Volta', 'Tempo_Volta', 'S1', 'S2', 'S3']].to_string(index=False)}
-    """
-    
-    # O seu Prompt Rígido e Padronizado
-    prompt_individual = f"""
-    Você é um analista de telemetria de Kart profissional.
-    Sua missão é gerar um relatório de desempenho seguindo RIGOROSAMENTE o modelo abaixo.
-    Não use negritos em excesso, não mude os títulos e mantenha o tom técnico e direto.
-
-    --- MODELO A SER SEGUIDO ---
-    {nome_piloto}
-    
-    Resultado
-    [Nome] fez P[X] na tomada, com [Tempo], e terminou a prova com [X] voltas e melhor volta de [Tempo].
-    
-    Leitura do desempenho
-    [Análise resumida do início, meio e fim da prova].
-    
-    Pontos positivos:
-    * Item 1
-    * Item 2
-    
-    Pontos de atenção:
-    * Item 1
-    * Item 2
-    
-    Diagnóstico
-    [Resumo técnico do que impediu um resultado melhor].
-    
-    Próximo foco
-    [Dica prática para a próxima corrida].
-    --- FIM DO MODELO ---
-
-    DADOS REAIS DA CORRIDA COLHIDOS NA TELEMETRIA:
-    {contexto}
-    """
-    
-    # Faz a chamada para a API do Google e retorna o texto para o JavaScript exibir na tela
-    resposta = model.generate_content(prompt_individual, generation_config=config_ia)
+    return json.dumps(dados_normalizados, ensure_ascii=False)vidual, generation_config=config_ia)
     return resposta.text
