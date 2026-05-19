@@ -351,40 +351,28 @@ def inicializar() -> None:
 
 inicializar()
 
-
-# =====================================================================
-# 📌 APAGUE O CÓDIGO DA IA ANTERIOR E COLE ESTE ABAIXO NO FINAL DO SEU ARQUIVO
-# =====================================================================
-
-def extrair_e_normalizar_voltas(html_voltas):
-    """Lê o arquivo de Volta a Volta e organiza a telemetria por piloto"""
+def extrair_texto_voltas_pyscript(html_voltas):
     from bs4 import BeautifulSoup
     import re
-    
+    import json
     soup = BeautifulSoup(html_voltas, 'html.parser')
-    dados_normalizados = []
-    piloto_atual = None
     tabela = soup.find('table', class_='points')
-    if not tabela:
-        return "[]"
-        
-    linhas = tabela.find_all('tr')[1:]
+    if not tabela: return "[]"
+    linhas = tabela.find_all('tr')
+    texto_pista = []
+    piloto_atual = "Desconhecido"
     for linha in linhas:
         colunas = linha.find_all('td')
         if len(colunas) == 1 and colunas[0].has_attr('colspan'):
             piloto_atual = colunas[0].get_text(strip=True)
             piloto_atual = re.sub(r"^\[\d+\]\s*", "", piloto_atual)
+            texto_pista.append(f"\n--- PILOTO: {piloto_atual} ---")
             continue
         if len(colunas) == 10:
-            dados_volta = [col.get_text(strip=True) for col in colunas]
-            dados_normalizados.append({
-                "Piloto": piloto_atual,
-                "Volta": dados_volta[1],
-                "Tempo": dados_volta[3],
-                "S1": dados_volta[7],
-                "S2": dados_volta[8],
-                "S3": dados_volta[9]
-            })
-            
-    return json.dumps(dados_normalizados, ensure_ascii=False)vidual, generation_config=config_ia)
-    return resposta.text
+            vlt = colunas[1].get_text(strip=True)
+            tempo = colunas[3].get_text(strip=True)
+            s1 = colunas[7].get_text(strip=True)
+            s2 = colunas[8].get_text(strip=True)
+            s3 = colunas[9].get_text(strip=True)
+            texto_pista.append(f"Volta {vlt}: Tempo: {tempo} | S1: {s1} | S2: {s2} | S3: {s3}")
+    return "\n".join(texto_pista)
