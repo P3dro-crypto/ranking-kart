@@ -2410,3 +2410,66 @@ function toggleHistoricoLinhaFirestore(idx) {
 }
 
 fetchData();
+
+// =====================================================================
+// 📌 ADICIONE ESTA FUNÇÃO NO FINAL DO SEU ARQUIVO SCRIPT.JS
+// =====================================================================
+
+async function gerarRelatorioGemini(dadosPilotoTxt, nomePiloto) {
+    // 1. INSIRA SUA CHAVE REAL DA API DO GEMINI ENTRE AS ASPAS ABAIXO:
+    const CHAVE_API = "AIzaSyD3AinSv_u6CtzCnJO5oY0Y-IpDBiEDe-8"; 
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CHAVE_API}`;
+    
+    // O seu Molde Rígido e Padronizado
+    const promptTexto = `
+Você é um analista de telemetria de Kart profissional.
+Sua missão é gerar um relatório de desempenho seguindo RIGOROSAMENTE o modelo abaixo.
+Não use negritos em excesso, não mude os títulos e mantenha o tom técnico e direto.
+
+--- MODELO A SER SEGUIDO ---
+${nomePiloto}
+
+Resultado
+[Nome] fez P[X] na tomada, com [Tempo], e terminou a prova com [X] voltas e melhor volta de [Tempo].
+
+Leitura do desempenho
+[Análise resumida do início, meio e fim da prova].
+
+Pontos positivos:
+* Item 1
+* Item 2
+
+Pontos de atenção:
+* Item 1
+* Item 2
+
+Diagnóstico
+[Resumo técnico do que impediu um resultado melhor].
+
+Próximo foco
+[Dica prática para a próxima corrida].
+--- FIM DO MODELO ---
+
+DADOS REAIS COLHIDOS NA TELEMETRIA:
+${dadosPilotoTxt}
+`;
+
+    const payload = {
+        contents: [{ parts: [{ text: promptTexto }] }],
+        generationConfig: { temperature: 0.1 }
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+        console.error("Erro na API do Gemini:", error);
+        return "Erro ao gerar o relatório com a inteligência artificial.";
+    }
+}
