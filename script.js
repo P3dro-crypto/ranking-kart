@@ -2411,81 +2411,105 @@ function toggleHistoricoLinhaFirestore(idx) {
 
 fetchData();
 
-async function gerarHistoriaPilotoComIA(dadosTelemetriaTxt, nomePiloto) {
-    const CHAVE_API_GEMINI = "AIzaSyD3AinSv_u6CtzCnJO5oY0Y-IpDBiEDe-8"; 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CHAVE_API_GEMINI}`;
-    const promptConfigurado = `Você é um analista de telemetria de Kart profissional. Gere um relatório seguindo RIGOROSAMENTE o modelo:
---- MODELO ---
-\${nomePiloto}
-Resultado: ...
-Leitura do desempenho: ...
-Pontos positivos: ...
-Pontos de atenção: ...
-Diagnóstico: ...
-Próximo foco: ...
---- FIM DO MODELO ---
-DADOS: \${dadosTelemetriaTxt}`;
-
-    try {
-        const resposta = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptConfigurado }] }], generationConfig: { temperature: 0.1 } })
-        });
-        const dadosJson = await resposta.json();
-        return dadosJson.candidates[0].content.parts[0].text;
-    } catch (erro) {
-        return "Erro ao chamar a Inteligência Artificial.";
-    }
-}
-
 // =====================================================================
-// 📌 ATIVAÇÃO CORRIGIDA DO BOTÃO DA IA PARA SITES COM ABAS
+// 📌 INJEÇÃO AUTOMÁTICA DA IA NO PAINEL DE DETALHES DO PILOTO
 // =====================================================================
 
-document.getElementById("btnGerarIA").addEventListener("click", async () => {
-    const statusDiv = document.getElementById("statusIA");
-    const resultadoDiv = document.getElementById("resultadoIA");
-    const selectPiloto = document.getElementById("selectPilotoIA");
+// Função auxiliar para criar a área da IA sempre que o painel abrir
+function injetarBotaoIADetalhes(nomePiloto) {
+    // Procura o local onde ficam os botões "Relação" e "Gráfico"
+    // Geralmente uma div contendo botões ou classes específicas do seu layout
+    const botoesContainer = document.querySelector(".Relação")?.parentElement || document.querySelector("#btnRelacao")?.parentElement;
     
-    // Captura o input de arquivo único do seu sistema
-    const inputArquivo = document.getElementById("fileImportacaoUnico");
-    const pilotoSelecionado = selectPiloto.value;
+    if (!botoesContainer || document.getElementById("btnGerarIA")) return;
+
+    // 1. Cria o botão vermelho estilizado no padrão do seu site
+    const btnIA = document.createElement("button");
+    btnIA.id = "btnGerarIA";
+    btnIA.innerText = "✨ Analisar com IA";
+    btnIA.style.cssText = "background: #e50914; color: #fff; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; vertical-align: middle;";
     
-    // 1. Validação de segurança: verifica se o arquivo existe
-    if (!inputArquivo || !inputArquivo.files || inputArquivo.files.length === 0) {
-        statusDiv.innerHTML = "<span style='color: #ff3333;'>❌ Nenhum arquivo de telemetria foi encontrado! Vá até a aba 'Importar', mude o tipo para 'Volta a volta' e selecione o seu arquivo HTML primeiro.</span>";
-        return;
-    }
-    
-    statusDiv.innerHTML = "⏳ Processando os dados de pista e chamando o Gemini... Aguarde.";
-    resultadoDiv.style.display = "none";
-    
-    try {
-        // 2. Extrai o texto do arquivo HTML carregado
-        const arquivo = inputArquivo.files[0];
-        const htmlTexto = await arquivo.text();
+    // 2. Cria as caixas de status e resultado
+    const statusDiv = document.createElement("div");
+    statusDiv.id = "statusIA";
+    statusDiv.style.cssText = "margin-top: 10px; color: #aaa; font-style: italic; font-size: 14px;";
+
+    const resultadoDiv = document.createElement("div");
+    resultadoDiv.id = "resultadoIA";
+    resultadoDiv.style.cssText = "margin-top: 15px; white-space: pre-wrap; background: #1c1c1e; color: #00ff00; padding: 15px; border-radius: 6px; font-family: monospace; display: none; border: 1px solid #333; font-size: 14px; text-align: left;";
+
+    // Adiciona o botão ao lado de "Gráfico" e as caixas abaixo
+    botoesContainer.appendChild(btnIA);
+    botoesContainer.parentElement.appendChild(statusDiv);
+    botoesContainer.parentElement.appendChild(resultadoDiv);
+
+    // 3. Lógica de clique do botão injetado
+    btnIA.addEventListener("click", async () => {
+        const inputArquivo = document.getElementById("fileImportacaoUnico");
         
-        // 3. Executa a extração usando a função limpa do Python via PyScript
-        let dadosTelemetriaLimpos = "";
-        if (window.pyodide && window.pyodide.globals.has("extrair_texto_voltas_pyscript")) {
-            dadosTelemetriaLimpos = window.pyodide.globals.get("extrair_texto_voltas_pyscript")(htmlTexto);
-        } else {
-            // Caso o PyScript ainda esteja indexando a função global
-            statusDiv.innerHTML = "<span style='color: #ffcc00;'>⚠️ O sistema Python ainda está inicializando na página. Aguarde 5 segundos e tente clicar novamente.</span>";
+        if (!inputArquivo || !inputArquivo.files || inputArquivo.files.length === 0) {
+            statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Vá na aba 'Importar', selecione 'Volta a volta' e suba o arquivo primeiro!</span>";
             return;
         }
-        
-        // 4. Dispara os dados para a API do Gemini no JavaScript
-        const relatorioFinalIA = await gerarHistoriaPilotoComIA(dadosTelemetriaLimpos, pilotoSelecionado);
-        
-        // 5. Exibe o resultado final de texto na tela
-        statusDiv.innerHTML = "✅ Relatório gerado com sucesso!";
-        resultadoDiv.innerText = relatorioFinalIA;
-        resultadoDiv.style.display = "block";
-        
-    } catch (erro) {
-        console.error(erro);
-        statusDiv.innerHTML = "<span style='color: #ff3333;'>❌ Erro ao gerar análise. Certifique-se de que o arquivo inserido na aba Importar é o HTML de Volta a Volta correto.</span>";
+
+        statusDiv.innerHTML = `⏳ Lendo telemetria e gerando a história de ${nomePiloto}...`;
+        resultadoDiv.style.display = "none";
+
+        try {
+            const arquivo = inputArquivo.files[0];
+            const htmlTexto = await arquivo.text();
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlTexto, "text/html");
+            const tabela = doc.querySelector("table.points");
+
+            if (!tabela) {
+                statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Tabela de tempos não encontrada no arquivo. Verifique se é o 'Volta a volta' correto.</span>";
+                return;
+            }
+
+            let textoTelemetria = "";
+            let pilotoAtual = "";
+            const linhas = tabela.querySelectorAll("tr");
+
+            linhas.forEach(linha => {
+                const colunas = Math.max(linha.querySelectorAll("td"));
+                const tdLista = linha.querySelectorAll("td");
+                if (tdLista.length === 1 && tdLista[0].hasAttribute("colspan")) {
+                    pilotoAtual = tdLista[0].textContent.trim().replace(/^\[\d+\]\s*/, "");
+                } else if (tdLista.length === 10 && pilotoAtual.toUpperCase().includes(nomePiloto.toUpperCase())) {
+                    textoTelemetria += `Volta ${tdLista[1].textContent.trim()}: Tempo: ${tdLista[3].textContent.trim()} | S1: ${tdLista[7].textContent.trim()} | S2: ${tdLista[8].textContent.trim()} | S3: ${tdLista[9].textContent.trim()}\n`;
+                }
+            });
+
+            if (textoTelemetria === "") {
+                statusDiv.innerHTML = `<span style='color: #ffcc00;'>⚠️ Telemetria de volta a volta para '${nomePiloto}' não encontrada neste arquivo.</span>`;
+                return;
+            }
+
+            const relatorioFinalIA = await gerarHistoriaPilotoComIA(textoTelemetria, nomePiloto);
+            
+            statusDiv.innerHTML = "✅ Análise concluída!";
+            resultadoDiv.innerText = relatorioFinalIA;
+            resultadoDiv.style.display = "block";
+
+        } catch (erro) {
+            console.error(erro);
+            statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Erro ao processar dados da corrida.</span>";
+        }
+    });
+}
+
+// Intercepta o clique nas linhas da tabela principal para injetar o botão automaticamente
+document.addEventListener("click", (event) => {
+    // Procura se o clique foi em uma linha de piloto ou elemento que abre o painel
+    const linhaPiloto = event.target.closest("tr");
+    if (linhaPiloto) {
+        // Pega o nome do piloto direto da linha clicada (ajuste o índice do td se necessário)
+        const nomePiloto = linhaPiloto.querySelector("td")?.textContent.trim() || "";
+        if (nomePiloto) {
+            // Aguarda o painel abrir e injeta o nosso botão vermelho lá dentro
+            setTimeout(() => injetarBotaoIADetalhes(nomePiloto), 300);
+        }
     }
 });
