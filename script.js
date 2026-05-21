@@ -2411,71 +2411,97 @@ function toggleHistoricoLinhaFirestore(idx) {
 
 fetchData();
 
-// =====================================================================
-// 📌 INJEÇÃO AUTOMÁTICA DA IA LOGO ABAIXO DO NOME DO PILOTO
-// =====================================================================
+}; // Fechamento de segurança da sua última função original
 
+// =====================================================================
+// 📌 MOTOR DA IA: CHAMADA DO GEMINI
+// =====================================================================
+async function gerarHistoriaPilotoComIA(dadosTelemetriaTxt, nomePiloto) {
+    const CHAVE_API_GEMINI = "AIzaSyC_ruvtoN9KFp9K4cuJeL17Z_KVN9tTO5s"; // Sua chave integrada
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CHAVE_API_GEMINI}`;
+    
+    const promptConfigurado = `Você é um analista de telemetria de Kart profissional. Gere um relatório detalhado seguindo RIGOROSAMENTE o modelo:
+--- MODELO ---
+${nomePiloto}
+Resultado: ...
+Leitura do desempenho: ...
+Pontos positivos: ...
+Pontos de atenção: ...
+Diagnóstico: ...
+Próximo foco: ...
+--- FIM DO MODELO ---
+DADOS REAIS DE TELEMETRIA:
+${dadosTelemetriaTxt}`;
+
+    try {
+        const resposta = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                contents: [{ parts: [{ text: promptConfigurado }] }], 
+                generationConfig: { temperature: 0.1 } 
+            })
+        });
+        const dadosJson = await resposta.json();
+        return dadosJson.candidates[0].content.parts[0].text;
+    } catch (erro) {
+        return "Erro ao chamar a Inteligência Artificial. Verifique a conexão.";
+    }
+}
+
+// =====================================================================
+// 📌 INJEÇÃO INTERNA DA IA QUANDO O CORREDOR É CLICADO
+// =====================================================================
 function injetarBotaoIADetalhes(nomePiloto) {
-    // Se o botão já estiver na tela, não faz nada para não duplicar
+    // Se o botão já estiver criado no painel aberto, não duplica
     if (document.getElementById("btnGerarIA")) return;
 
-    // Buscaremos o título com o nome do piloto no painel de detalhes
-    // Varre a tela procurando um elemento h2, h3 ou div que contenha exatamente o nome do piloto
-    let elementoNome = null;
-    const elementos = document.querySelectorAll("h1, h2, h3, h4, div");
-    for (let el of elementos) {
-        if (el.children.length === 0 && el.textContent.trim() === nomePiloto) {
-            elementoNome = el;
-            break;
-        }
-    }
+    // Procura o contêiner interno gerado (como a div "consulta-subcard" ou o local dos botões Relação/Gráfico)
+    let containerDestino = document.querySelector(".consulta-subcard") || 
+                           document.querySelector(".py-preview-card") || 
+                           document.querySelector(".form-card");
 
-    // Se não achar o nome do piloto para ancorar, tenta pegar o container principal do painel
-    const containerPai = elementoNome ? elementoNome.parentElement : document.querySelector(".card, .container, div[style*='background']");
-    if (!containerPai) return;
+    // Se o painel de detalhes ainda não estiver visível na tela, não faz nada
+    if (!containerDestino) return;
 
-    // 1. Cria a caixinha que vai segurar o botão e os textos da IA
+    // 1. Cria a caixinha estilizada que vai abrigar o botão e o resultado
     const areaIA = document.createElement("div");
     areaIA.id = "area-ia-injetada";
-    areaIA.style.cssText = "margin: 15px 0; padding: 12px; background: #111; border: 1px solid #222; border-radius: 6px; text-align: left;";
+    areaIA.style.cssText = "margin-top: 15px; padding: 15px; background: #151a22; border: 1px solid #394150; border-radius: 12px; text-align: left; width: 100%; box-sizing: border-box;";
 
-    // 2. Cria o botão vermelho estilizado no padrão Netflix/Speed do seu site
+    // 2. Cria o botão vermelho no mesmo padrão visual do seu sistema (--red)
     const btnIA = document.createElement("button");
     btnIA.id = "btnGerarIA";
-    btnIA.innerText = `🏎️ Gerar Análise de ${nomePiloto} com IA`;
-    btnIA.style.cssText = "background: #e50914; color: #fff; border: none; padding: 8px 16px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 14px; transition: 0.2s;";
+    btnIA.innerText = `🏎️ Analisar Corrida de ${nomePiloto} com IA`;
+    btnIA.style.cssText = "background: #ff4b4b; color: white; border: none; padding: 12px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%; margin: 0;";
     
-    // 3. Cria as áreas de carregamento e o bloco de resposta final
+    // 3. Cria as áreas para exibir o status e o texto final da IA
     const statusDiv = document.createElement("div");
     statusDiv.id = "statusIA";
-    statusDiv.style.cssText = "margin-top: 10px; color: #aaa; font-style: italic; font-size: 13px;";
+    statusDiv.style.cssText = "margin-top: 10px; color: #ffeb3b; font-style: italic; font-size: 13px;";
 
     const resultadoDiv = document.createElement("div");
     resultadoDiv.id = "resultadoIA";
-    resultadoDiv.style.cssText = "margin-top: 15px; white-space: pre-wrap; background: #000; color: #00ff00; padding: 15px; border-radius: 5px; font-family: monospace; display: none; border: 1px solid #333; font-size: 14px; line-height: 1.5; text-align: left;";
+    resultadoDiv.style.cssText = "margin-top: 15px; white-space: pre-wrap; background: #0e1117; color: #9ad99a; padding: 15px; border-radius: 8px; font-family: monospace; display: none; border: 1px solid #333; font-size: 13px; line-height: 1.5;";
 
-    // Monta a estrutura
+    // Monta o bloco interno
     areaIA.appendChild(btnIA);
     areaIA.appendChild(statusDiv);
     areaIA.appendChild(resultadoDiv);
 
-    // Insere logo abaixo do nome do piloto (ou no topo do painel)
-    if (elementoNome) {
-        elementoNome.insertAdjacentElement("afterend", areaIA);
-    } else {
-        containerPai.insertBefore(areaIA, containerPai.firstChild);
-    }
+    // Insere a caixinha da IA bem no final do painel de detalhes do corredor
+    containerDestino.appendChild(areaIA);
 
-    // 4. Lógica de clique para ler o arquivo enviado e disparar para o Gemini
+    // 4. Lógica de clique para processar a telemetria do arquivo "Volta a volta"
     btnIA.addEventListener("click", async () => {
         const inputArquivo = document.getElementById("fileImportacaoUnico");
         
         if (!inputArquivo || !inputArquivo.files || inputArquivo.files.length === 0) {
-            statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Arquivo não encontrado! Vá na aba 'Importar' (pasta amarela abaixo), mude para 'Volta a volta' e selecione o HTML primeiro.</span>";
+            statusDiv.innerHTML = "❌ Vá na aba 'Importar', selecione 'Volta a volta' e suba o arquivo HTML primeiro!";
             return;
         }
 
-        statusDiv.innerHTML = `⏳ Acessando telemetria e criando o relatório de ${nomePiloto}...`;
+        statusDiv.innerHTML = `⏳ Cruzando dados de telemetria para ${nomePiloto}...`;
         resultadoDiv.style.display = "none";
 
         try {
@@ -2487,7 +2513,7 @@ function injetarBotaoIADetalhes(nomePiloto) {
             const tabela = doc.querySelector("table.points");
 
             if (!tabela) {
-                statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Tabela não encontrada. Certifique-se de que o arquivo na aba Importar é o 'Volta a volta'.</span>";
+                statusDiv.innerHTML = "❌ Tabela 'points' não encontrada. Suba o arquivo correto na aba Importar.";
                 return;
             }
 
@@ -2505,19 +2531,33 @@ function injetarBotaoIADetalhes(nomePiloto) {
             });
 
             if (textoTelemetria === "") {
-                statusDiv.innerHTML = `<span style='color: #ffcc00;'>⚠️ Dados de volta a volta para '${nomePiloto}' não encontrados neste arquivo HTML.</span>`;
+                statusDiv.innerHTML = `⚠️ Dados 'Volta a volta' de '${nomePiloto}' não encontrados no arquivo atual.`;
                 return;
             }
 
             const relatorioFinalIA = await gerarHistoriaPilotoComIA(textoTelemetria, nomePiloto);
             
-            statusDiv.innerHTML = "✅ Relatório criado!";
+            statusDiv.innerHTML = "✅ Relatório gerado!";
             resultadoDiv.innerText = relatorioFinalIA;
             resultadoDiv.style.display = "block";
 
         } catch (erro) {
             console.error(erro);
-            statusDiv.innerHTML = "<span style='color: #ff4444;'>❌ Erro técnico ao processar os arquivos de telemetria.</span>";
+            statusDiv.innerHTML = "❌ Erro ao ler o arquivo de telemetria.";
         }
     });
 }
+
+// Ouvinte global: Toda vez que você clicar em qualquer lugar da tela, 
+// ele checa se foi na linha de um corredor do ranking para disparar o injetor interno
+document.addEventListener("click", (event) => {
+    const linhaTabela = event.target.closest("tr");
+    if (linhaTabela) {
+        const nomePiloto = linhaTabela.querySelector("td")?.textContent.trim() || "";
+        // Ignora cabeçalhos e elementos falsos da tabela
+        if (nomePiloto && !nomePiloto.includes("Pos") && !nomePiloto.includes("Piloto") && !nomePiloto.includes("Pts")) {
+            // Aguarda 400 milissegundos para o seu sistema abrir o painel escuro antes de injetar o botão lá dentro
+            setTimeout(() => injetarBotaoIADetalhes(nomePiloto), 400);
+        }
+    }
+});
